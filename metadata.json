@@ -1,0 +1,7 @@
+{
+  "name": "Project Khata",
+  "description": "A complete construction project management app for Bangladesh managing attendance, finances, and worker profiles.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
