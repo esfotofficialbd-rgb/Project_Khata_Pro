@@ -417,25 +417,25 @@ export const Khata = () => {
 
       {/* QR Scanner Overlay */}
       {isScanning && (
-         <div className="fixed inset-0 z-[70] bg-black flex flex-col items-center justify-center">
-            <button onClick={stopScanning} className="absolute top-6 right-6 p-3 bg-white/20 backdrop-blur-sm rounded-full text-white z-20 hover:bg-white/30 transition-colors">
+         <div className="fixed inset-0 z-[70] bg-slate-950 flex flex-col items-center justify-center">
+            <button onClick={stopScanning} className="absolute top-6 right-6 p-3 bg-white/10 backdrop-blur-sm rounded-full text-white z-20 hover:bg-white/20 transition-colors">
                <X size={24} />
             </button>
             
             <button 
                onClick={toggleCamera}
-               className="absolute top-6 left-6 p-3 bg-white/20 backdrop-blur-sm rounded-full text-white z-20 hover:bg-white/30 transition-colors"
+               className="absolute top-6 left-6 p-3 bg-white/10 backdrop-blur-sm rounded-full text-white z-20 hover:bg-white/20 transition-colors"
                title="ক্যামেরা ঘোরান"
             >
                <RefreshCw size={24} />
             </button>
             
-            <div className="relative w-full max-w-sm aspect-square bg-black overflow-hidden rounded-3xl shadow-2xl mx-4 border border-slate-800">
+            <div className="relative w-full max-w-sm aspect-square bg-slate-900 overflow-hidden rounded-3xl shadow-2xl mx-4 border border-slate-800">
                {scanError ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
                      <AlertTriangle size={48} className="text-red-500 mb-2"/>
                      <p className="text-white text-sm font-bold">{scanError}</p>
-                     <button onClick={startScanning} className="mt-4 px-4 py-2 bg-white text-black rounded-lg text-xs font-bold">পুনরায় চেষ্টা করুন</button>
+                     <button onClick={startScanning} className="mt-4 px-4 py-2 bg-white text-slate-900 rounded-lg text-xs font-bold">পুনরায় চেষ্টা করুন</button>
                   </div>
                ) : (
                   <>
@@ -447,7 +447,7 @@ export const Khata = () => {
                   </>
                )}
                <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none">
-                  <p className="text-white/90 text-sm font-bold bg-black/60 inline-block px-4 py-2 rounded-full backdrop-blur-md">
+                  <p className="text-white/90 text-sm font-bold bg-slate-900/60 inline-block px-4 py-2 rounded-full backdrop-blur-md border border-white/10">
                      শ্রমিকের QR কোডটি ফ্রেমে ধরুন
                   </p>
                </div>

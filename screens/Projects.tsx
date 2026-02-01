@@ -389,7 +389,7 @@ export const Projects = () => {
 
                 <button 
                   type="submit" 
-                  className="w-full py-4 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 hover:bg-black dark:hover:bg-blue-700 transition-all active:scale-95"
+                  className="w-full py-4 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-blue-700 transition-all active:scale-95"
                 >
                    {user?.role === 'supervisor' ? <Send size={18} /> : <CheckCircle size={18} />}
                    {user?.role === 'supervisor' ? 'অনুরোধ পাঠান' : 'প্রজেক্ট শুরু করুন'}

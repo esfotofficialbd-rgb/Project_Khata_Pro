@@ -69,8 +69,8 @@ export const ProjectDetails = () => {
       {/* Header */}
       <div className="bg-white dark:bg-slate-900 p-4 shadow-sm sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
         <div className="flex items-center gap-3">
-           <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-gray-600 dark:text-gray-300 transition-colors">
-             <ArrowLeft size={20} />
+           <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
+             <ArrowLeft size={22} />
            </button>
            <h1 className="font-bold text-lg text-gray-800 dark:text-white truncate max-w-[200px]">{project.project_name}</h1>
         </div>

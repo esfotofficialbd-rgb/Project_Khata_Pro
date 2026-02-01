@@ -106,10 +106,10 @@ export const WorkerDetails = () => {
           
           <div className="flex items-center justify-between p-4 relative z-10 text-white">
              <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                <ArrowLeft size={20} />
+                <ArrowLeft size={22} />
              </button>
              <button onClick={openEditModal} className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
-                <Edit2 size={18} />
+                <Edit2 size={20} />
              </button>
           </div>
        </div>
@@ -153,7 +153,7 @@ export const WorkerDetails = () => {
 
        {/* Financial Stats */}
        <div className="px-4 mt-4">
-          <div className="bg-slate-900 dark:bg-black rounded-3xl p-5 text-white flex justify-between items-center shadow-lg shadow-slate-300 dark:shadow-none">
+          <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-5 text-white flex justify-between items-center shadow-lg shadow-slate-300 dark:shadow-none">
              <div>
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">বর্তমান বকেয়া</p>
                 <p className={`text-3xl font-bold ${worker.balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>৳ {worker.balance.toLocaleString()}</p>

@@ -191,7 +191,7 @@ export const Login = () => {
               <button 
                 type="submit" 
                 disabled={loading}
-                className={`w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-200 mt-2 hover:bg-black transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${loading ? 'opacity-80 cursor-not-allowed' : ''}`}
+                className={`w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-200 mt-2 hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${loading ? 'opacity-80 cursor-not-allowed' : ''}`}
               >
                  {loading ? 'লগইন হচ্ছে...' : (
                     <>

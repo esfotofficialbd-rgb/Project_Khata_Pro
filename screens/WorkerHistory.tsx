@@ -1,15 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
-import { useNavigate } from 'react-router-dom';
-import { Calendar, DollarSign, Clock, Building2, ChevronLeft, ChevronRight, XCircle, Wallet, Filter } from 'lucide-react';
+import { Calendar, DollarSign, Clock, Building2, ChevronLeft, ChevronRight, XCircle, Wallet, UserCheck, CheckCircle } from 'lucide-react';
 
 export const WorkerHistory = () => {
   const { user } = useAuth();
   const { attendance, transactions, users, projects, appSettings } = useData();
   
-  // View Anchor Date (Initialized to Today)
   const [viewDate, setViewDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState<'attendance' | 'payment'>('attendance');
 
   if (!user) return null;
 
@@ -24,12 +23,11 @@ export const WorkerHistory = () => {
     let subLabel = '';
 
     if (appSettings.calcMode === 'weekly') {
-       // Map day name to index (Sun=0, Mon=1...Sat=6)
        const dayMap: Record<string, number> = { 
          'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 
          'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 
        };
-       const targetDay = dayMap[appSettings.weekStartDay] ?? 6; // Default Saturday
+       const targetDay = dayMap[appSettings.weekStartDay] ?? 6; 
        
        const currentDay = start.getDay();
        const distance = (currentDay + 7 - targetDay) % 7;
@@ -42,7 +40,7 @@ export const WorkerHistory = () => {
        end.setHours(23,59,59,999);
        
        label = `${start.toLocaleDateString('bn-BD', {day:'numeric', month:'short'})} - ${end.toLocaleDateString('bn-BD', {day:'numeric', month:'short'})}`;
-       subLabel = 'সাপ্তাহিক হিসাব';
+       subLabel = 'সাপ্তাহিক';
     } else {
        const startDay = appSettings.monthStartDate || 1;
        
@@ -61,7 +59,7 @@ export const WorkerHistory = () => {
        } else {
          label = `${start.toLocaleDateString('bn-BD', {day:'numeric', month:'short'})} - ${end.toLocaleDateString('bn-BD', {day:'numeric', month:'short'})}`;
        }
-       subLabel = 'মাসিক হিসাব';
+       subLabel = 'মাসিক';
     }
     return { start, end, label, subLabel };
   }, [viewDate, appSettings]);
@@ -110,128 +108,141 @@ export const WorkerHistory = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-       {/* Header */}
-       <div className="bg-white p-4 shadow-sm sticky top-0 z-10 mb-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 font-sans">
+       {/* Sticky Header with Cycle Navigator */}
+       <div className="bg-white dark:bg-slate-900 px-4 pt-4 pb-2 shadow-sm sticky top-0 z-10 border-b border-slate-100 dark:border-slate-800">
           <div className="flex justify-between items-center mb-4">
              <div>
-                <h1 className="font-bold text-lg text-gray-800">কাজের ইতিহাস</h1>
-                <p className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                <h1 className="font-bold text-lg text-slate-800 dark:text-white">কাজের ইতিহাস</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
                    <Building2 size={12} className="text-blue-500"/> 
-                   <span className="font-semibold text-gray-600">{companyName}</span>
+                   <span className="font-medium">{companyName}</span>
                 </p>
              </div>
-             <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold border border-gray-200">
+             <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-full text-[10px] font-bold border border-slate-200 dark:border-slate-700">
                 {cycleInfo.subLabel}
              </span>
           </div>
           
-          {/* Cycle Navigator */}
-          <div className="flex items-center justify-between bg-gray-50 p-2 rounded-xl border border-gray-200">
-             <button onClick={handlePrev} className="p-2 hover:bg-white rounded-lg shadow-sm transition-all text-gray-600"><ChevronLeft size={20}/></button>
+          <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-2 rounded-xl border border-slate-200 dark:border-slate-700 mb-2">
+             <button onClick={handlePrev} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all text-slate-600 dark:text-slate-300"><ChevronLeft size={20}/></button>
              <div className="text-center">
-                <p className="font-bold text-gray-800 text-sm">{cycleInfo.label}</p>
+                <p className="font-bold text-slate-800 dark:text-white text-sm">{cycleInfo.label}</p>
              </div>
-             <button onClick={handleNext} className="p-2 hover:bg-white rounded-lg shadow-sm transition-all text-gray-600"><ChevronRight size={20}/></button>
+             <button onClick={handleNext} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all text-slate-600 dark:text-slate-300"><ChevronRight size={20}/></button>
           </div>
        </div>
 
-       <div className="px-4 space-y-6">
+       <div className="px-4 mt-4 space-y-5">
           
-          {/* Cycle Summary */}
-          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-             <h3 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-50 pb-2">
-                সাইকেল সারাংশ
-             </h3>
-             <div className="grid grid-cols-3 gap-2">
-                <div className="bg-blue-50 p-2 rounded-lg text-center">
-                   <p className="text-xl font-bold text-blue-600">{cycleWorkDays}</p>
-                   <p className="text-[10px] text-gray-500 font-bold">কাজের দিন</p>
-                </div>
-                <div className="bg-green-50 p-2 rounded-lg text-center">
-                   <p className="text-xl font-bold text-green-600">৳{Math.round(cycleEarnings / 1000)}k</p>
-                   <p className="text-[10px] text-gray-500 font-bold">মোট আয়</p>
-                </div>
-                <div className="bg-purple-50 p-2 rounded-lg text-center">
-                   <p className="text-xl font-bold text-purple-600">৳{Math.round(cycleReceived / 1000)}k</p>
-                   <p className="text-[10px] text-gray-500 font-bold">পেমেন্ট রিসিভ</p>
+          {/* Cycle Summary Card */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+             <div className="flex justify-between items-center mb-4 border-b border-slate-50 dark:border-slate-800 pb-3">
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">সারাংশ</h3>
+                <div className="text-right">
+                   <span className="text-[10px] text-slate-400 block mb-0.5">মোট বকেয়া</span>
+                   <span className={`text-sm font-bold ${user.balance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                      ৳ {user.balance.toLocaleString()}
+                   </span>
                 </div>
              </div>
              
-             <div className="mt-3 pt-2 border-t border-gray-50 flex justify-between items-center">
-                <span className="text-xs text-gray-500">বর্তমান মোট বকেয়া:</span>
-                <span className={`text-sm font-bold ${user.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                   ৳ {user.balance.toLocaleString()}
-                </span>
+             <div className="grid grid-cols-3 gap-3">
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-center">
+                   <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{cycleWorkDays}</p>
+                   <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-1">দিন কাজ</p>
+                </div>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-xl text-center">
+                   <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">৳{Math.round(cycleEarnings / 1000)}k</p>
+                   <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-1">আয়</p>
+                </div>
+                <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl text-center">
+                   <p className="text-xl font-bold text-purple-600 dark:text-purple-400">৳{Math.round(cycleReceived / 1000)}k</p>
+                   <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-1">রিসিভ</p>
+                </div>
              </div>
           </div>
 
-          {/* Attendance Log */}
-          <div>
-             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
-                <Clock size={16} className="text-orange-500" /> হাজিরা বিবরণী
-             </h3>
-             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {filteredAttendance.length === 0 ? (
-                   <div className="p-8 text-center flex flex-col items-center gap-2">
-                      <XCircle size={32} className="text-gray-200" />
-                      <p className="text-gray-400 text-xs">এই সাইকেলে কোন হাজিরা নেই</p>
+          {/* Tabs */}
+          <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-xl">
+             <button 
+               onClick={() => setActiveTab('attendance')}
+               className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'attendance' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
+             >
+                <UserCheck size={14} /> হাজিরা
+             </button>
+             <button 
+               onClick={() => setActiveTab('payment')}
+               className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'payment' ? 'bg-white dark:bg-slate-700 shadow text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}
+             >
+                <Wallet size={14} /> পেমেন্ট
+             </button>
+          </div>
+
+          {/* List Content */}
+          <div className="space-y-3 pb-4">
+             {activeTab === 'attendance' ? (
+                filteredAttendance.length === 0 ? (
+                   <div className="py-12 text-center flex flex-col items-center gap-3">
+                      <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-full text-slate-300 dark:text-slate-600">
+                         <Clock size={32} />
+                      </div>
+                      <p className="text-slate-400 text-xs font-bold">এই সময়ে কোন হাজিরা নেই</p>
                    </div>
                 ) : (
                    filteredAttendance.map((record) => (
-                      <div key={record.id} className="p-3 border-b border-gray-50 flex items-center justify-between last:border-none hover:bg-gray-50 transition-colors">
-                         <div>
-                            <p className="font-bold text-gray-800 text-sm">{new Date(record.date).toLocaleDateString('bn-BD', {day:'numeric', month:'short'})}</p>
-                            <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
-                               <Building2 size={10}/> {getProjectName(record.project_id)}
-                            </p>
+                      <div key={record.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm">
+                         <div className="flex items-center gap-3">
+                            <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl text-center min-w-[50px]">
+                               <p className="text-lg font-bold text-slate-800 dark:text-white leading-none">{new Date(record.date).getDate()}</p>
+                               <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{new Date(record.date).toLocaleDateString('en-US', {month: 'short'})}</p>
+                            </div>
+                            <div>
+                               <p className="font-bold text-slate-800 dark:text-white text-sm mb-0.5">{getProjectName(record.project_id)}</p>
+                               <div className="flex items-center gap-2">
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                     record.status === 'P' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 
+                                     record.status === 'H' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                  }`}>
+                                     {record.status === 'P' ? 'ফুল ডে' : record.status === 'H' ? 'হাফ ডে' : 'অনুপস্থিত'}
+                                  </span>
+                                  {record.overtime && record.overtime > 0 ? (
+                                     <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 flex items-center gap-0.5">
+                                        <Clock size={10} /> {record.overtime}h OT
+                                     </span>
+                                  ) : null}
+                               </div>
+                            </div>
                          </div>
-                         <div className="text-right">
-                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                record.status === 'P' ? 'bg-green-100 text-green-700' : 
-                                record.status === 'H' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-                             }`}>
-                                {record.status === 'P' ? 'উপস্থিত' : record.status === 'H' ? 'হাফ-ডে' : 'অনুপস্থিত'}
-                             </span>
-                             <p className="text-xs font-bold text-gray-700 mt-1">৳{record.amount}</p>
-                             {record.overtime && record.overtime > 0 ? (
-                                <p className="text-[9px] text-purple-600 font-bold">+OT ({record.overtime}h)</p>
-                             ) : null}
-                         </div>
+                         <p className="text-sm font-bold text-slate-700 dark:text-slate-300">৳{record.amount}</p>
                       </div>
                    ))
-                )}
-             </div>
-          </div>
-
-          {/* Payment Log */}
-          <div>
-             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm uppercase tracking-wider">
-                <DollarSign size={16} className="text-green-500" /> পেমেন্ট বিবরণী
-             </h3>
-             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                {filteredPayments.length === 0 ? (
-                   <div className="p-8 text-center flex flex-col items-center gap-2">
-                      <Wallet size={32} className="text-gray-200" />
-                      <p className="text-gray-400 text-xs">এই সাইকেলে কোন পেমেন্ট পাননি</p>
+                )
+             ) : (
+                filteredPayments.length === 0 ? (
+                   <div className="py-12 text-center flex flex-col items-center gap-3">
+                      <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-full text-slate-300 dark:text-slate-600">
+                         <Wallet size={32} />
+                      </div>
+                      <p className="text-slate-400 text-xs font-bold">এই সময়ে কোন পেমেন্ট পাননি</p>
                    </div>
                 ) : (
                    filteredPayments.map((tx) => (
-                      <div key={tx.id} className="p-3 border-b border-gray-50 flex items-center justify-between last:border-none hover:bg-gray-50 transition-colors">
+                      <div key={tx.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm border-l-4 border-l-emerald-500">
                          <div className="flex items-center gap-3">
-                            <div className="bg-green-50 p-2 rounded-full text-green-600">
-                               <Wallet size={16} />
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2.5 rounded-full text-emerald-600 dark:text-emerald-400">
+                               <CheckCircle size={20} />
                             </div>
                             <div>
-                               <p className="font-bold text-gray-800 text-sm">{tx.description}</p>
-                               <p className="text-[10px] text-gray-500 mt-0.5">{new Date(tx.date).toLocaleDateString('bn-BD', {day:'numeric', month:'short'})}</p>
+                               <p className="font-bold text-slate-800 dark:text-white text-sm">{tx.description}</p>
+                               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{new Date(tx.date).toLocaleDateString('bn-BD', {day:'numeric', month:'long', year:'numeric'})}</p>
                             </div>
                          </div>
-                         <span className="font-bold text-green-600 text-sm">+ ৳{tx.amount.toLocaleString()}</span>
+                         <span className="font-bold text-emerald-600 dark:text-emerald-400 text-base">+ ৳{tx.amount.toLocaleString()}</span>
                       </div>
                    ))
-                )}
-             </div>
+                )
+             )}
           </div>
        </div>
     </div>

@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { CheckCircle, AlertCircle, XCircle, Info, X } from 'lucide-react';
+import { Check, AlertTriangle, X, Info, Bell } from 'lucide-react';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -26,12 +25,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const addToast = useCallback((message: string, type: ToastType) => {
     const id = Date.now().toString();
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => {
+        // Limit to 2 toasts to avoid clutter, removing oldest
+        const newToasts = [...prev, { id, message, type }];
+        if (newToasts.length > 2) return newToasts.slice(1);
+        return newToasts;
+    });
 
-    // Auto remove after 3 seconds
     setTimeout(() => {
       removeToast(id);
-    }, 3000);
+    }, 4000);
   }, []);
 
   const removeToast = useCallback((id: string) => {
@@ -45,40 +48,40 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     info: (msg: string) => addToast(msg, 'info'),
   };
 
+  const getIcon = (type: ToastType) => {
+    switch (type) {
+      case 'success': return <Check size={20} className="text-emerald-400" strokeWidth={3} />;
+      case 'error': return <X size={20} className="text-red-400" strokeWidth={3} />;
+      case 'warning': return <AlertTriangle size={20} className="text-amber-400" strokeWidth={3} />;
+      default: return <Bell size={20} className="text-blue-400" strokeWidth={3} />;
+    }
+  };
+
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {/* Toast Container */}
-      <div className="fixed top-5 left-0 right-0 z-[100] pointer-events-none flex flex-col items-center gap-2 px-4">
+      {/* iPhone Dynamic Island Style Toast Container - using Slate-900 instead of Black */}
+      <div className="fixed top-2 left-0 right-0 z-[120] pointer-events-none flex flex-col items-center gap-2 px-4">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto min-w-[300px] max-w-sm w-full bg-white dark:bg-slate-800 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border-l-4 p-4 flex items-center justify-between gap-3 transform transition-all duration-300 animate-in slide-in-from-top-5 fade-in ${
-              t.type === 'success' ? 'border-l-emerald-500' :
-              t.type === 'error' ? 'border-l-red-500' :
-              t.type === 'warning' ? 'border-l-orange-500' : 'border-l-blue-500'
-            }`}
+            onClick={() => removeToast(t.id)}
+            className="pointer-events-auto cursor-pointer relative bg-slate-900 text-white rounded-full shadow-2xl shadow-slate-900/50 pl-2 pr-6 py-2 flex items-center gap-3 min-w-[320px] max-w-sm animate-in slide-in-from-top-[-150%] fade-in duration-500 ease-out hover:scale-[1.02] active:scale-95 transition-transform border border-slate-800/50"
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-1 rounded-full ${
-                t.type === 'success' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' :
-                t.type === 'error' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' :
-                t.type === 'warning' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' : 
-                'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-              }`}>
-                {t.type === 'success' && <CheckCircle size={18} />}
-                {t.type === 'error' && <XCircle size={18} />}
-                {t.type === 'warning' && <AlertCircle size={18} />}
-                {t.type === 'info' && <Info size={18} />}
-              </div>
-              <p className="text-sm font-bold text-slate-800 dark:text-white leading-tight">{t.message}</p>
+            {/* Icon Circle */}
+            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center shrink-0 backdrop-blur-xl border border-slate-700">
+                {getIcon(t.type)}
             </div>
-            <button 
-              onClick={() => removeToast(t.id)}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X size={16} />
-            </button>
+
+            {/* Content */}
+            <div className="flex-1 flex flex-col justify-center">
+               <p className="text-[13px] font-semibold leading-tight text-white/95">
+                  {t.message}
+               </p>
+            </div>
+            
+            {/* Handle/Indicator */}
+            <div className="w-1 h-8 bg-slate-800 rounded-full shrink-0"></div>
           </div>
         ))}
       </div>

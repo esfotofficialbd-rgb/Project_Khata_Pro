@@ -45,7 +45,7 @@ interface DataContextType {
   addUser: (user: Profile) => Promise<void>;
   updateUser: (updatedUser: Profile) => Promise<void>;
   updateAppSettings: (settings: AppSettings) => void;
-  sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment', metadata?: any) => Promise<void>;
+  sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment' | 'project_request' | 'attendance_request' | 'advance_request' | 'work_report', metadata?: any) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   getUnreadCount: (userId: string) => number;
   addTransaction: (transaction: Transaction) => Promise<void>;
@@ -226,7 +226,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!checkOnline()) return;
     try {
       const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        auth: { 
+            persistSession: false, 
+            autoRefreshToken: false, 
+            detectSessionInUrl: false 
+        }
       });
 
       const email = newUser.phone + '@projectkhata.local';
@@ -252,41 +256,64 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
            id: data.user.id,
            is_verified: true,
            balance: 0,
-           skill_type: newUser.skill_type,
-           daily_rate: newUser.daily_rate,
-           designation: newUser.designation,
-           monthly_salary: newUser.monthly_salary,
-           payment_type: newUser.payment_type,
-           assigned_project_id: newUser.assigned_project_id,
+           skill_type: newUser.skill_type || null,
+           daily_rate: newUser.daily_rate || 0,
+           designation: newUser.designation || null,
+           monthly_salary: newUser.monthly_salary || 0,
+           payment_type: newUser.payment_type || null,
+           assigned_project_id: newUser.assigned_project_id || null,
            role: newUser.role,
            phone: newUser.phone,
            full_name: newUser.full_name,
            avatar_url: newUser.avatar_url,
-           company_name: newUser.company_name
+           company_name: newUser.company_name,
+           email: email
         };
-        await supabase.from('profiles').upsert(updates);
+        
+        const { error: dbError } = await tempSupabase.from('profiles').upsert(updates);
+        if (dbError) throw dbError;
       }
       
-      toast.success('নতুন ব্যবহারকারী সফলভাবে তৈরি হয়েছে!');
+      toast.success('নতুন কর্মী সফলভাবে যুক্ত হয়েছে! পাসওয়ার্ড: ' + password);
       refreshData();
 
     } catch (error: any) {
       console.error(error);
-      toast.error('Error: ' + error.message);
+      toast.error('ত্রুটি: ' + error.message);
     }
   };
 
   const updateUser = async (updatedUser: Profile) => {
     if (!checkOnline()) return;
-    await supabase.from('profiles').update(updatedUser).eq('id', updatedUser.id);
+    const { error } = await supabase.from('profiles').update(updatedUser).eq('id', updatedUser.id);
+    if (error) {
+       toast.error('আপডেট ব্যর্থ: ' + error.message);
+       return;
+    }
     toast.success('প্রোফাইল আপডেট হয়েছে');
     refreshData();
   };
 
   const addProject = async (project: Project) => {
     if (!checkOnline()) return;
-    const { id, ...projectData } = project;
-    await supabase.from('projects').insert([projectData]);
+    
+    const sanitizedProject = {
+        ...project,
+        budget_amount: isNaN(Number(project.budget_amount)) ? 0 : Number(project.budget_amount),
+        sqft_rate: project.sqft_rate ? Number(project.sqft_rate) : null,
+        total_area: project.total_area ? Number(project.total_area) : null,
+        mistri_rate: project.mistri_rate ? Number(project.mistri_rate) : null,
+        helper_rate: project.helper_rate ? Number(project.helper_rate) : null,
+        current_expense: 0
+    };
+
+    const { error } = await supabase.from('projects').insert([sanitizedProject]);
+    
+    if (error) {
+       console.error("Project Insert Error:", error);
+       toast.error('প্রজেক্ট তৈরি করা যায়নি: ' + (error.message || error.details || 'Unknown Error'));
+       return;
+    }
     toast.success('নতুন প্রজেক্ট তৈরি হয়েছে');
     refreshData();
   };
@@ -297,12 +324,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
      if(contractor) {
         await sendNotification(contractor.id, `${supervisorName} একটি নতুন প্রজেক্ট (${project.project_name}) তৈরির অনুরোধ করেছেন।`, 'project_request', project);
         toast.info('অনুরোধ পাঠানো হয়েছে');
+     } else {
+        toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি। রিকোয়েস্ট পাঠানো যায়নি।');
      }
   };
 
   const updateProject = async (project: Project) => {
     if (!checkOnline()) return;
-    await supabase.from('projects').update(project).eq('id', project.id);
+    const { error } = await supabase.from('projects').update(project).eq('id', project.id);
+    if (error) {
+       toast.error('আপডেট ব্যর্থ: ' + error.message);
+       return;
+    }
     toast.success('প্রজেক্ট আপডেট হয়েছে');
     refreshData();
   };
@@ -324,12 +357,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (existing) {
         let oldAmount = existing.amount;
-        await supabase.from('attendance').update({ status, project_id: pid, amount }).eq('id', existing.id);
+        const { error: attError } = await supabase.from('attendance').update({ status, project_id: pid, amount }).eq('id', existing.id);
+        if (attError) throw attError;
         
         const newBalance = (worker.balance - oldAmount) + amount;
         await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
       } else {
-        await supabase.from('attendance').insert([{
+        const { error: attError } = await supabase.from('attendance').insert([{
           worker_id: workerId,
           project_id: pid,
           date: date,
@@ -337,6 +371,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           amount: amount,
           overtime: 0
         }]);
+        if (attError) throw attError;
         await supabase.from('profiles').update({ balance: worker.balance + amount }).eq('id', workerId);
       }
       toast.success('হাজিরা আপডেট হয়েছে');
@@ -382,14 +417,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const project = projects.find(p => p.id === projectId);
     const contractor = users.find(u => u.role === 'contractor');
     
-    if (contractor && worker && project) {
-       await sendNotification(
-          contractor.id, 
-          `${worker.full_name} হাজিরা রিকোয়েস্ট পাঠিয়েছেন (${project.project_name})`, 
-          'attendance_request',
-          { workerId, projectId, date, workerName: worker.full_name, projectName: project.project_name }
-       );
+    // Find Supervisors: Assigned to this project OR General supervisors (no project assigned)
+    const supervisors = users.filter(u => u.role === 'supervisor' && (!u.assigned_project_id || u.assigned_project_id === projectId));
+    
+    if (worker && project) {
+       const message = `${worker.full_name} হাজিরা রিকোয়েস্ট পাঠিয়েছেন (${project.project_name})`;
+       const metadata = { workerId, projectId, date, workerName: worker.full_name, projectName: project.project_name };
+
+       // 1. Send to Contractor
+       if (contractor) {
+          await sendNotification(
+             contractor.id, 
+             message, 
+             'attendance_request',
+             metadata
+          );
+       }
+
+       // 2. Send to Supervisors
+       for (const sup of supervisors) {
+           await sendNotification(
+             sup.id, 
+             message, 
+             'attendance_request',
+             metadata
+          );
+       }
+
        toast.success('রিকোয়েস্ট পাঠানো হয়েছে');
+    } else {
+        if (!contractor) toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি। রিকোয়েস্ট পাঠানো যায়নি।');
+        else if (!project) toast.error('প্রজেক্ট খুঁজে পাওয়া যায়নি।');
     }
   };
 
@@ -405,24 +463,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             { workerId, amount, workerName: worker.full_name }
          );
          toast.success('আবেদন পাঠানো হয়েছে');
+      } else {
+         toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি। আবেদন পাঠানো যায়নি।');
       }
   };
 
   const addTransaction = async (transaction: Transaction) => {
      if (!checkOnline()) return;
-     const { id, ...txData } = transaction;
      
      const txPayload = {
-         ...txData,
-         project_id: txData.project_id || null
+         ...transaction,
+         project_id: transaction.project_id || null,
+         amount: isNaN(Number(transaction.amount)) ? 0 : Number(transaction.amount)
      };
 
-     await supabase.from('transactions').insert([txPayload]);
+     const { error } = await supabase.from('transactions').insert([txPayload]);
+     if (error) {
+        console.error("Transaction Error:", error);
+        toast.error('লেনদেন সেভ হয়নি: ' + error.message);
+        return;
+     }
      
      if (transaction.project_id) {
        const proj = projects.find(p => p.id === transaction.project_id);
        if (proj) {
-         const newExpense = proj.current_expense + transaction.amount;
+         const newExpense = (proj.current_expense || 0) + txPayload.amount;
          await supabase.from('projects').update({ current_expense: newExpense }).eq('id', proj.id);
        }
      }
@@ -435,13 +500,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const worker = users.find(u => u.id === workerId);
     if (!worker) return;
 
-    await supabase.from('transactions').insert([{
+    const { error: txError } = await supabase.from('transactions').insert([{
+       id: Date.now().toString(),
        type: 'salary',
        amount: amount,
        related_user_id: workerId,
        description: `${worker.full_name} - পেমেন্ট`,
        date: new Date().toISOString().split('T')[0]
     }]);
+
+    if (txError) {
+        toast.error('পেমেন্ট রেকর্ড করা যায়নি: ' + txError.message);
+        return;
+    }
 
     const newBalance = worker.balance - amount;
     await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
@@ -481,7 +552,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         is_read: false,
         metadata
      }]);
-     // No need to refreshData() here manually, the realtime subscription will catch it
   };
 
   const markNotificationAsRead = async (id: string) => {
@@ -496,8 +566,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addWorkReport = async (report: WorkReport) => {
       if (!checkOnline()) return;
-      const { id, ...data } = report;
-      await supabase.from('work_reports').insert([data]);
+      const { error } = await supabase.from('work_reports').insert([report]);
+      
+      if (error) {
+         toast.error('রিপোর্ট পাঠানো যায়নি');
+         return;
+      }
       
       const contractor = users.find(u => u.role === 'contractor');
       const sender = users.find(u => u.id === report.submitted_by);
@@ -514,8 +588,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addMaterialLog = async (log: MaterialLog) => {
       if (!checkOnline()) return;
-      const { id, ...data } = log;
-      await supabase.from('material_logs').insert([data]);
+      const { error } = await supabase.from('material_logs').insert([log]);
+      if (error) {
+         toast.error('মালামাল এন্ট্রি হয়নি');
+         return;
+      }
       refreshData();
   };
 
