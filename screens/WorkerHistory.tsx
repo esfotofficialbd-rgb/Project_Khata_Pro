@@ -32,8 +32,6 @@ export const WorkerHistory = () => {
        const targetDay = dayMap[appSettings.weekStartDay] ?? 6; // Default Saturday
        
        const currentDay = start.getDay();
-       // Calculate days to subtract to reach the start of the week
-       // (currentDay + 7 - targetDay) % 7 handles wrap around correctly
        const distance = (currentDay + 7 - targetDay) % 7;
        
        start.setDate(start.getDate() - distance);
@@ -48,7 +46,6 @@ export const WorkerHistory = () => {
     } else {
        const startDay = appSettings.monthStartDate || 1;
        
-       // If viewDate's day is before startDay, it belongs to the previous month's cycle
        if (viewDate.getDate() < startDay) {
           start.setMonth(start.getMonth() - 1);
        }
@@ -59,7 +56,6 @@ export const WorkerHistory = () => {
        end.setDate(startDay - 1);
        end.setHours(23,59,59,999);
        
-       // Label formatting
        if (startDay === 1) {
          label = start.toLocaleDateString('bn-BD', {month:'long', year:'numeric'});
        } else {
@@ -99,7 +95,6 @@ export const WorkerHistory = () => {
      return p ? p.project_name : 'অজানা প্রজেক্ট';
   };
 
-  // --- Navigation Handlers ---
   const handlePrev = () => {
      const d = new Date(viewDate);
      if (appSettings.calcMode === 'weekly') d.setDate(d.getDate() - 7);
@@ -114,8 +109,6 @@ export const WorkerHistory = () => {
      setViewDate(d);
   };
 
-  // Check if viewDate is in current cycle to disable 'Next' if desired (optional, not implemented to allow viewing future)
-  
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
        {/* Header */}
@@ -188,7 +181,7 @@ export const WorkerHistory = () => {
                    filteredAttendance.map((record) => (
                       <div key={record.id} className="p-3 border-b border-gray-50 flex items-center justify-between last:border-none hover:bg-gray-50 transition-colors">
                          <div>
-                            <p className="font-bold text-gray-800 text-sm">{record.date}</p>
+                            <p className="font-bold text-gray-800 text-sm">{new Date(record.date).toLocaleDateString('bn-BD', {day:'numeric', month:'short'})}</p>
                             <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1">
                                <Building2 size={10}/> {getProjectName(record.project_id)}
                             </p>
@@ -231,7 +224,7 @@ export const WorkerHistory = () => {
                             </div>
                             <div>
                                <p className="font-bold text-gray-800 text-sm">{tx.description}</p>
-                               <p className="text-[10px] text-gray-500 mt-0.5">{tx.date}</p>
+                               <p className="text-[10px] text-gray-500 mt-0.5">{new Date(tx.date).toLocaleDateString('bn-BD', {day:'numeric', month:'short'})}</p>
                             </div>
                          </div>
                          <span className="font-bold text-green-600 text-sm">+ ৳{tx.amount.toLocaleString()}</span>

@@ -1,11 +1,12 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../context/DataContext';
-import { Calendar, ChevronLeft, ChevronRight, X, Search, QrCode, Clock, CheckCircle, AlertTriangle, UserCheck, Volume2 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Calendar, ChevronLeft, ChevronRight, X, Search, QrCode, Clock, CheckCircle, UserCheck, RefreshCw, Smartphone } from 'lucide-react';
 import jsQR from 'jsqr';
 
 export const Khata = () => {
   const { users, projects, markAttendance, addOvertime, attendance, getDailyStats } = useData();
+  const location = useLocation();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<{workerId: string, status: 'P' | 'H'} | null>(null);
@@ -18,6 +19,7 @@ export const Khata = () => {
 
   // Scanner State
   const [isScanning, setIsScanning] = useState(false);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -30,6 +32,14 @@ export const Khata = () => {
     worker.phone.includes(searchQuery) ||
     (worker.skill_type && worker.skill_type.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // Check for auto-start scan via navigation state
+  useEffect(() => {
+    if (location.state && (location.state as any).autoStartScan) {
+        startScanning();
+        window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const getStatus = (workerId: string) => {
     const record = attendance.find(a => a.worker_id === workerId && a.date === selectedDate);
@@ -119,7 +129,7 @@ export const Khata = () => {
 
   const startScanning = () => {
     setIsScanning(true);
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
       .then((stream) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -133,6 +143,18 @@ export const Khata = () => {
         alert("ক্যামেরা চালু করা যাচ্ছে না। দয়া করে পারমিশন চেক করুন।");
         setIsScanning(false);
       });
+  };
+
+  // Re-initialize scan if camera flips
+  useEffect(() => {
+      if (isScanning) {
+          stopScanning();
+          startScanning();
+      }
+  }, [facingMode]);
+
+  const toggleCamera = () => {
+      setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
   const stopScanning = () => {
@@ -380,6 +402,14 @@ export const Khata = () => {
                <X size={24} />
             </button>
             
+            <button 
+               onClick={toggleCamera}
+               className="absolute top-6 left-6 p-3 bg-white/20 backdrop-blur-sm rounded-full text-white z-20 hover:bg-white/30 transition-colors"
+               title="ক্যামেরা ঘোরান"
+            >
+               <RefreshCw size={24} />
+            </button>
+            
             <div className="relative w-full max-w-sm aspect-square bg-black overflow-hidden rounded-3xl shadow-2xl mx-4 border border-slate-800">
                <video ref={videoRef} className="w-full h-full object-cover" />
                <canvas ref={canvasRef} className="hidden" />
@@ -391,6 +421,11 @@ export const Khata = () => {
                      শ্রমিকের QR কোডটি ফ্রেমে ধরুন
                   </p>
                </div>
+            </div>
+            
+            <div className="mt-8 text-white/60 text-xs flex flex-col items-center gap-1">
+               <Smartphone size={24} className="mb-2"/>
+               <p>আপনার মোবাইলটি সোজা করে ধরুন</p>
             </div>
          </div>
       )}

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
-import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2 } from 'lucide-react';
+import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2, Download } from 'lucide-react';
 import { Profile } from '../types';
 import QRCode from 'react-qr-code';
 
@@ -10,7 +10,7 @@ export const WorkerProfile = () => {
   const { updateUser, users, attendance } = useData();
   const [showIdCard, setShowIdCard] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [zoomQr, setZoomQr] = useState(false); // State for fullscreen QR
+  const [zoomQr, setZoomQr] = useState(false); 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<Partial<Profile>>({});
 
@@ -27,7 +27,6 @@ export const WorkerProfile = () => {
     : contractor?.company_name || 'Project Khata';
 
   const isSupervisor = user.role === 'supervisor';
-  const themeColor = isSupervisor ? 'purple' : 'emerald';
 
   const handleEditClick = () => {
     setFormData({
@@ -66,6 +65,28 @@ export const WorkerProfile = () => {
     updateUser(updatedUser);
     setUser(updatedUser);
     setIsEditing(false);
+  };
+
+  const downloadQrCode = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const svg = document.getElementById("worker-qr-code");
+    if (svg) {
+        const svgData = new XMLSerializer().serializeToString(svg);
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const img = new Image();
+        img.onload = () => {
+            canvas.width = 300;
+            canvas.height = 300;
+            ctx?.drawImage(img, 0, 0, 300, 300);
+            const pngFile = canvas.toDataURL("image/png");
+            const downloadLink = document.createElement("a");
+            downloadLink.download = `${user.full_name}_QR.png`;
+            downloadLink.href = pngFile;
+            downloadLink.click();
+        };
+        img.src = "data:image/svg+xml;base64," + btoa(svgData);
+    }
   };
 
   return (
@@ -140,60 +161,75 @@ export const WorkerProfile = () => {
         >
           <div className="flex items-center gap-3">
              <CreditCard size={20} />
-             <span className="font-bold text-sm">ডিজিটাল আইডি কার্ড দেখুন</span>
+             <span className="font-bold text-sm">ডিজিটাল আইডি কার্ড {showIdCard ? 'লুকান' : 'দেখুন'}</span>
           </div>
-          <QrCode size={20} />
+          {showIdCard ? <X size={20}/> : <QrCode size={20} />}
         </button>
 
         {/* Realistic Smart Card UI */}
         {showIdCard && (
-          <div className={`mt-4 rounded-2xl p-6 aspect-[1.58/1] relative overflow-hidden shadow-2xl text-white ${isSupervisor ? 'bg-gradient-to-br from-purple-700 via-indigo-800 to-slate-900' : 'bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900'}`}>
-             
-             {/* Card Patterns */}
-             <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-             <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
-             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+          <div className="animate-scale-up">
+            <div className={`mt-4 rounded-2xl p-6 aspect-[1.58/1] relative overflow-hidden shadow-2xl text-white ${isSupervisor ? 'bg-gradient-to-br from-purple-700 via-indigo-800 to-slate-900' : 'bg-gradient-to-br from-emerald-700 via-teal-800 to-slate-900'}`}>
+               
+               {/* Card Patterns */}
+               <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+               <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/20 rounded-full blur-3xl -ml-10 -mb-10 pointer-events-none"></div>
+               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
 
-             <div className="relative h-full flex flex-col justify-between z-10">
-                <div className="flex justify-between items-start">
-                   <div className="flex items-center gap-2">
-                      <Building2 size={16} className="opacity-80"/>
-                      <span className="font-bold text-sm tracking-wider uppercase opacity-90">{companyName}</span>
-                   </div>
-                   <img src="/logo_placeholder.png" className="h-6 opacity-0" /> {/* Placeholder for logo */}
-                </div>
+               <div className="relative h-full flex flex-col justify-between z-10">
+                  <div className="flex justify-between items-start">
+                     <div className="flex items-center gap-2">
+                        <Building2 size={16} className="opacity-80"/>
+                        <span className="font-bold text-sm tracking-wider uppercase opacity-90 truncate max-w-[150px]">{companyName}</span>
+                     </div>
+                     <p className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded backdrop-blur-sm">OFFICIAL ID</p>
+                  </div>
 
-                <div className="flex gap-4 items-center">
-                   <div 
-                      className="bg-white p-1 rounded-lg cursor-pointer hover:scale-105 transition-transform relative group"
-                      onClick={() => setZoomQr(true)}
-                      title="বড় করে দেখতে ক্লিক করুন"
-                   >
-                      <div style={{ height: "auto", margin: "0 auto", maxWidth: 64, width: "100%" }}>
-                        <QRCode size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} value={user.id} viewBox={`0 0 256 256`} />
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Maximize2 size={16} className="text-slate-800"/>
-                      </div>
-                   </div>
-                   <div>
-                      <h3 className="font-bold text-lg leading-tight">{user.full_name}</h3>
-                      <p className="text-xs opacity-75 uppercase tracking-wider mt-0.5">{isSupervisor ? user.designation : user.skill_type}</p>
-                      <div className="mt-2 flex items-center gap-2">
-                         <Cpu size={24} className="text-yellow-400 opacity-80" />
-                         <span className="text-[10px] font-mono opacity-60">{user.id.slice(0, 8)}...</span>
-                      </div>
-                   </div>
-                </div>
+                  <div className="flex gap-4 items-center">
+                     <div 
+                        className="bg-white p-1 rounded-lg cursor-pointer hover:scale-105 transition-transform relative group shadow-lg"
+                        onClick={() => setZoomQr(true)}
+                        title="বড় করে দেখতে ক্লিক করুন"
+                     >
+                        <div style={{ height: "auto", margin: "0 auto", maxWidth: 64, width: "100%" }}>
+                          <QRCode 
+                            id="worker-qr-code" 
+                            size={256} 
+                            style={{ height: "auto", maxWidth: "100%", width: "100%" }} 
+                            value={user.id} 
+                            viewBox={`0 0 256 256`} 
+                          />
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                           <Maximize2 size={16} className="text-slate-800"/>
+                        </div>
+                     </div>
+                     <div>
+                        <h3 className="font-bold text-lg leading-tight truncate max-w-[160px]">{user.full_name}</h3>
+                        <p className="text-xs opacity-75 uppercase tracking-wider mt-0.5">{isSupervisor ? user.designation : user.skill_type}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                           <Cpu size={14} className="text-yellow-400 opacity-80" />
+                           <span className="text-[10px] font-mono opacity-60">ID: {user.id.slice(0, 8)}</span>
+                        </div>
+                     </div>
+                  </div>
 
-                <div className="flex justify-between items-end">
-                   <div>
-                      <p className="text-[8px] opacity-60 uppercase">Phone</p>
-                      <p className="text-xs font-mono font-bold tracking-wide">{user.phone}</p>
-                   </div>
-                   <p className="text-[10px] font-bold bg-white/20 px-2 py-0.5 rounded backdrop-blur-sm">OFFICIAL ID</p>
-                </div>
-             </div>
+                  <div className="flex justify-between items-end">
+                     <div>
+                        <p className="text-[8px] opacity-60 uppercase">Emergency Contact</p>
+                        <p className="text-xs font-mono font-bold tracking-wide">{user.phone}</p>
+                     </div>
+                     <img src={user.avatar_url} className="w-10 h-10 rounded-full border-2 border-white/30 object-cover" />
+                  </div>
+               </div>
+            </div>
+            
+            <button 
+               onClick={downloadQrCode}
+               className="w-full mt-3 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+               <Download size={16} /> QR কোড সেভ করুন
+            </button>
           </div>
         )}
       </div>

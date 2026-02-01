@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Image, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Bell, Search, Sun, Moon, Loader2 } from 'lucide-react';
+import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Image, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Bell, Search, Sun, Moon, Loader2, ArrowRight, MoreHorizontal, Calendar, PieChart, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
 import { Transaction } from '../types';
 
@@ -17,7 +16,8 @@ export const ContractorDashboard = () => {
   const [greeting, setGreeting] = useState('');
   useEffect(() => {
     const hour = new Date().getHours();
-    if (hour < 12) setGreeting('শুভ সকাল');
+    if (hour < 5) setGreeting('শুভ রাত্রি');
+    else if (hour < 12) setGreeting('শুভ সকাল');
     else if (hour < 17) setGreeting('শুভ দুপুর');
     else setGreeting('শুভ সন্ধ্যা');
   }, []);
@@ -57,9 +57,7 @@ export const ContractorDashboard = () => {
       setActiveModal(null);
       
       if (worker) {
-         // Calculate new balance locally for immediate feedback in SMS
-         const currentBalance = worker.balance; // This is before update in local state might reflect instantly depending on implementation, better to calc
-         const newBalance = currentBalance - amount;
+         const newBalance = worker.balance - amount;
          const message = `Project Khata: পেমেন্ট রিসিভড ৳${amount}। বর্তমান বকেয়া: ৳${newBalance}। ধন্যবাদ।`;
          
          if(window.confirm("পেমেন্ট সফল! আপনি কি কর্মীকে SMS পাঠাতে চান?")) {
@@ -94,7 +92,7 @@ export const ContractorDashboard = () => {
 
   if (isLoadingData) {
      return (
-        <div className="p-6 min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center space-y-4">
            <Loader2 className="animate-spin text-blue-600" size={32} />
            <p className="text-sm text-slate-500 font-bold animate-pulse">ডাটা লোড হচ্ছে...</p>
         </div>
@@ -102,164 +100,210 @@ export const ContractorDashboard = () => {
   }
 
   return (
-    <div className="p-4 space-y-6 pb-24 relative bg-slate-50 dark:bg-slate-950 min-h-screen">
+    <div className="px-5 pt-4 pb-28 relative bg-slate-50 dark:bg-slate-950 min-h-screen font-sans">
       
-      {/* Header Section */}
-      <div className="flex justify-between items-end mb-2">
+      {/* Top Bar */}
+      <div className="flex justify-between items-end mb-6">
          <div>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-0.5">{greeting},</p>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white">ড্যাশবোর্ড</h1>
+            <div className="flex items-center gap-1.5 mb-1 opacity-80">
+               <Sun size={14} className="text-orange-500" />
+               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{greeting}</span>
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight">ড্যাশবোর্ড</h1>
          </div>
-         <div className="bg-white dark:bg-slate-800 p-2 rounded-full shadow-sm border border-slate-100 dark:border-slate-700">
-             <div className="text-xs font-bold px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+         <div className="bg-white dark:bg-slate-900 p-1.5 pl-3 pr-1.5 rounded-full shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2">
+             <span className="text-xs font-bold text-slate-600 dark:text-slate-300 font-mono">
                 {new Date().toLocaleDateString('bn-BD', { day: 'numeric', month: 'long' })}
+             </span>
+             <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-full text-slate-600 dark:text-slate-400">
+                <Calendar size={14} />
              </div>
          </div>
       </div>
 
-      {/* Hero Balance Card - Premium Gradient */}
-      <div className="relative overflow-hidden rounded-[2rem] p-6 shadow-xl shadow-blue-500/20">
-         <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-700"></div>
-         {/* Decorative Circles */}
-         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white opacity-10 blur-3xl"></div>
-         <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 rounded-full bg-purple-500 opacity-20 blur-3xl"></div>
+      {/* Hero Financial Card */}
+      <div className="relative w-full aspect-[1.7/1] rounded-[2rem] overflow-hidden shadow-2xl shadow-blue-500/20 mb-8 group transition-all hover:scale-[1.01]">
+         {/* Background Gradient */}
+         <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700"></div>
+         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+         
+         {/* Decorative Blobs */}
+         <div className="absolute -top-10 -right-10 w-40 h-40 bg-white opacity-10 rounded-full blur-2xl"></div>
+         <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-400 opacity-20 rounded-full blur-2xl"></div>
 
-         <div className="relative z-10 text-white">
-            <div className="flex justify-between items-start mb-8">
+         <div className="relative h-full p-6 flex flex-col justify-between text-white z-10">
+            <div className="flex justify-between items-start">
                <div>
-                  <p className="text-blue-100 text-sm font-medium mb-1 flex items-center gap-1 opacity-90">
-                     <Wallet size={14} /> {t('total_due')}
+                  <p className="text-blue-100 text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                     <Wallet size={12} /> {t('total_due')}
                   </p>
-                  <h2 className="text-4xl font-bold tracking-tight">৳ {stats.totalDue.toLocaleString()}</h2>
+                  <h2 className="text-3xl font-bold tracking-tighter">৳ {stats.totalDue.toLocaleString()}</h2>
                </div>
-               <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10">
-                  <p className="text-[10px] font-bold text-blue-50 uppercase tracking-wider">{t('present_workers')}</p>
-                  <p className="text-xl font-bold text-center">{stats.totalPresent}</p>
+               <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2 rounded-xl">
+                  <TrendingUp size={20} className="text-white" />
                </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-               <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-3 border border-white/5">
-                  <div className="flex items-center gap-2 mb-1 text-emerald-300">
-                     <ArrowDownLeft size={16} />
-                     <span className="text-xs font-bold">আজকের আয়</span>
+            <div className="flex gap-3">
+               <div className="flex-1 bg-black/20 backdrop-blur-sm rounded-xl p-3 border border-white/5">
+                  <div className="flex items-center gap-1 mb-1 text-rose-300">
+                     <ArrowUpRight size={12} />
+                     <span className="text-[10px] font-bold uppercase">{t('todays_expense')}</span>
                   </div>
-                  <p className="text-lg font-bold">৳ 0</p>
+                  <p className="text-sm font-bold">৳ {stats.totalExpense.toLocaleString()}</p>
                </div>
-               <div className="bg-black/20 backdrop-blur-sm rounded-2xl p-3 border border-white/5">
-                  <div className="flex items-center gap-2 mb-1 text-red-300">
-                     <ArrowUpRight size={16} />
-                     <span className="text-xs font-bold">{t('todays_expense')}</span>
+               <div className="flex-1 bg-black/20 backdrop-blur-sm rounded-xl p-3 border border-white/5">
+                  <div className="flex items-center gap-1 mb-1 text-emerald-300">
+                     <Users size={12} />
+                     <span className="text-[10px] font-bold uppercase">{t('present_workers')}</span>
                   </div>
-                  <p className="text-lg font-bold">৳ {stats.totalExpense.toLocaleString()}</p>
+                  <p className="text-sm font-bold">{stats.totalPresent} জন</p>
                </div>
             </div>
          </div>
       </div>
 
-      {/* Quick Actions - Horizontal Scrollable */}
-      <div>
-        <h3 className="text-slate-800 dark:text-slate-200 font-bold mb-3 px-1 text-sm uppercase tracking-wider">{t('quick_actions')}</h3>
-        <div className="grid grid-cols-4 gap-3">
+      {/* Quick Actions Grid */}
+      <div className="mb-8">
+        <h3 className="text-slate-800 dark:text-white font-bold text-sm mb-4 flex items-center gap-2">
+           <span className="w-1 h-4 bg-blue-500 rounded-full"></span>
+           {t('quick_actions')}
+        </h3>
+        
+        <div className="grid grid-cols-4 gap-4">
           {[
-             { icon: PlusCircle, label: t('add_worker'), color: 'text-white', bg: 'bg-blue-500', action: () => navigate('/workers', { state: { openAddModal: true } }) },
-             { icon: Briefcase, label: t('add_project'), color: 'text-white', bg: 'bg-indigo-500', action: () => navigate('/projects', { state: { openAddModal: true } }) },
-             { icon: Wallet, label: t('advance'), color: 'text-white', bg: 'bg-emerald-500', action: () => setActiveModal('payment') },
-             { icon: DollarSign, label: t('expense'), color: 'text-white', bg: 'bg-red-500', action: () => setActiveModal('expense') },
-             { icon: CreditCard, label: t('deposit'), color: 'text-slate-700', bg: 'bg-white border border-slate-200', action: () => setActiveModal('income') },
-             { icon: Hammer, label: t('tools'), color: 'text-slate-700', bg: 'bg-white border border-slate-200', action: () => navigate('/tools') },
-             { icon: FileText, label: t('report'), color: 'text-slate-700', bg: 'bg-white border border-slate-200', action: () => navigate('/reports') },
-             { icon: Image, label: t('gallery'), color: 'text-slate-700', bg: 'bg-white border border-slate-200', action: () => alert('গ্যালারি শীঘ্রই আসছে') },
+             { icon: PlusCircle, label: t('add_worker'), bg: 'bg-blue-50 dark:bg-blue-900/20', color: 'text-blue-600 dark:text-blue-400', action: () => navigate('/workers', { state: { openAddModal: true } }) },
+             { icon: Briefcase, label: t('add_project'), bg: 'bg-purple-50 dark:bg-purple-900/20', color: 'text-purple-600 dark:text-purple-400', action: () => navigate('/projects', { state: { openAddModal: true } }) },
+             { icon: Wallet, label: t('labor_payment'), bg: 'bg-emerald-50 dark:bg-emerald-900/20', color: 'text-emerald-600 dark:text-emerald-400', action: () => setActiveModal('payment') },
+             { icon: DollarSign, label: t('expense'), bg: 'bg-rose-50 dark:bg-rose-900/20', color: 'text-rose-600 dark:text-rose-400', action: () => setActiveModal('expense') },
+             
+             { icon: CreditCard, label: t('deposit'), bg: 'bg-slate-100 dark:bg-slate-800', color: 'text-slate-600 dark:text-slate-400', action: () => setActiveModal('income') },
+             { icon: Hammer, label: t('tools'), bg: 'bg-slate-100 dark:bg-slate-800', color: 'text-slate-600 dark:text-slate-400', action: () => navigate('/tools') },
+             { icon: FileText, label: t('report'), bg: 'bg-slate-100 dark:bg-slate-800', color: 'text-slate-600 dark:text-slate-400', action: () => navigate('/reports') },
+             { icon: MoreHorizontal, label: 'অন্যান্য', bg: 'bg-slate-100 dark:bg-slate-800', color: 'text-slate-600 dark:text-slate-400', action: () => navigate('/settings') },
           ].map((item, idx) => (
-            <button key={idx} onClick={item.action} className="flex flex-col items-center gap-2 group active:scale-95 transition-transform">
-              <div className={`${item.bg} p-4 rounded-2xl shadow-sm ${item.color === 'text-white' ? 'shadow-lg' : ''} flex items-center justify-center w-full aspect-square transition-all`}>
-                <item.icon size={24} className={item.color} />
+            <button key={idx} onClick={item.action} className="flex flex-col items-center gap-2 group">
+              <div className={`${item.bg} w-full aspect-square rounded-2xl flex items-center justify-center transition-transform active:scale-95 group-hover:shadow-md`}>
+                <item.icon size={22} className={item.color} strokeWidth={2} />
               </div>
-              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 text-center leading-tight truncate w-full">{item.label}</span>
+              <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 text-center leading-tight">{item.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Analytics Chart */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+      {/* Analytics Section */}
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] shadow-sm border border-slate-100 dark:border-slate-800 mb-6">
          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-slate-800 dark:text-slate-200 font-bold text-sm uppercase tracking-wider">{t('last_7_days')}</h3>
-            <button onClick={() => navigate('/reports')} className="text-blue-600 text-xs font-bold bg-blue-50 px-2 py-1 rounded-lg">সব দেখুন</button>
+            <div>
+               <h3 className="text-slate-800 dark:text-white font-bold text-sm flex items-center gap-2">
+                  <PieChart size={16} className="text-blue-500" />
+                  {t('last_7_days')}
+               </h3>
+               <p className="text-[10px] text-slate-400 font-medium ml-6 mt-0.5">আয় ও ব্যয়ের তুলনা</p>
+            </div>
+            <button onClick={() => navigate('/reports')} className="p-2 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-400 hover:text-blue-600 transition-colors">
+               <ArrowRight size={16} />
+            </button>
          </div>
-         <div className="h-48 w-full">
+         
+         <div style={{ width: '100%', height: 180 }}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                      <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
                      </linearGradient>
                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
                         <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                      </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.5} />
-                  <XAxis dataKey="name" tick={{fontSize: 10, fill: '#94a3b8'}} axisLine={false} tickLine={false} dy={10} />
-                  <YAxis tick={{fontSize: 10, fill: '#94a3b8'}} axisLine={false} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.3} />
+                  <XAxis dataKey="name" tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} dy={10} />
+                  <YAxis tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} />
                   <Tooltip 
-                     contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
-                     labelStyle={{ color: '#64748b', fontSize: '12px', marginBottom: '5px' }}
+                     contentStyle={{ 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                     }}
                   />
-                  <Area type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorExpense)" name={t('expenditure')} />
-                  <Area type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorIncome)" name={t('income')} />
+                  <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" />
+                  <Area type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" />
                </AreaChart>
             </ResponsiveContainer>
          </div>
       </div>
 
-      {/* Status Overview Cards */}
+      {/* Status Cards */}
       <div className="grid grid-cols-2 gap-4">
-         <div 
+         <button 
             onClick={() => navigate('/projects')}
-            className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group cursor-pointer"
+            className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group"
          >
-            <div className="absolute right-0 top-0 w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-            <Briefcase size={24} className="text-blue-600 mb-3 relative z-10" />
-            <p className="text-3xl font-bold text-slate-800 dark:text-white mb-1 relative z-10">{activeProjects}</p>
-            <p className="text-xs text-slate-500 font-bold uppercase relative z-10">{t('active_projects')}</p>
-         </div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-50 dark:bg-blue-900/10 rounded-bl-full -mr-5 -mt-5 transition-transform group-hover:scale-110"></div>
+            <div className="bg-blue-100 dark:bg-blue-900/30 w-10 h-10 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 relative z-10">
+               <Briefcase size={20} />
+            </div>
+            <div>
+               <p className="text-2xl font-bold text-slate-800 dark:text-white">{activeProjects}</p>
+               <div className="flex items-center gap-1 text-slate-500">
+                  <span className="text-[10px] font-bold uppercase">{t('active_projects')}</span>
+                  <ChevronRight size={12} />
+               </div>
+            </div>
+         </button>
 
-         <div 
+         <button 
             onClick={() => navigate('/workers')}
-            className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden group cursor-pointer"
+            className="bg-white dark:bg-slate-900 p-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group"
          >
-            <div className="absolute right-0 top-0 w-16 h-16 bg-emerald-50 dark:bg-emerald-900/20 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
-            <Users size={24} className="text-emerald-600 mb-3 relative z-10" />
-            <p className="text-3xl font-bold text-slate-800 dark:text-white mb-1 relative z-10">{activeWorkers}</p>
-            <p className="text-xs text-slate-500 font-bold uppercase relative z-10">{t('active_workers')}</p>
-         </div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-50 dark:bg-emerald-900/10 rounded-bl-full -mr-5 -mt-5 transition-transform group-hover:scale-110"></div>
+            <div className="bg-emerald-100 dark:bg-emerald-900/30 w-10 h-10 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 relative z-10">
+               <Users size={20} />
+            </div>
+            <div>
+               <p className="text-2xl font-bold text-slate-800 dark:text-white">{activeWorkers}</p>
+               <div className="flex items-center gap-1 text-slate-500">
+                  <span className="text-[10px] font-bold uppercase">{t('active_workers')}</span>
+                  <ChevronRight size={12} />
+               </div>
+            </div>
+         </button>
       </div>
 
-      {/* Modals - Clean & Minimal */}
+      {/* Bottom Sheet Modals */}
       {(activeModal === 'income' || activeModal === 'expense' || activeModal === 'payment') && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
-           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm relative z-10 p-6 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
-              <div className="flex justify-between items-center mb-8">
+           
+           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-6 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800">
+              {/* Drag Handle for Mobile */}
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
+
+              <div className="flex justify-between items-center mb-6">
                  <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    {activeModal === 'income' ? <div className="p-2 bg-green-100 rounded-full text-green-600"><ArrowDownLeft size={20}/></div> : 
-                     activeModal === 'expense' ? <div className="p-2 bg-red-100 rounded-full text-red-600"><ArrowUpRight size={20}/></div> : 
-                     <div className="p-2 bg-emerald-100 rounded-full text-emerald-600"><Wallet size={20}/></div>}
-                    {activeModal === 'income' ? t('income_title') : activeModal === 'expense' ? t('expense_title') : t('payment_title')}
+                    {activeModal === 'income' ? <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-emerald-600"><ArrowDownLeft size={20}/></div> : 
+                     activeModal === 'expense' ? <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-xl text-rose-600"><ArrowUpRight size={20}/></div> : 
+                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600"><Wallet size={20}/></div>}
+                    <span className="text-lg">{activeModal === 'income' ? t('income_title') : activeModal === 'expense' ? t('expense_title') : t('payment_title')}</span>
                  </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-50 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
               </div>
 
-              <form onSubmit={activeModal === 'payment' ? handlePaySubmit : handleTxSubmit} className="space-y-6">
+              <form onSubmit={activeModal === 'payment' ? handlePaySubmit : handleTxSubmit} className="space-y-5">
                  {activeModal === 'payment' && (
                     <div className="space-y-2">
-                       <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{t('select_worker')}</label>
+                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('select_worker')}</label>
                        <select 
                           value={payForm.workerId}
                           onChange={(e) => setPayForm({...payForm, workerId: e.target.value})}
-                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-800 dark:text-white"
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 font-bold text-slate-800 dark:text-white appearance-none transition-all"
                           required
                        >
                           <option value="">{t('click_list')}</option>
@@ -268,18 +312,18 @@ export const ContractorDashboard = () => {
                           ))}
                        </select>
                        {payForm.workerId && (
-                          <div className="flex justify-between px-2 text-xs font-medium">
-                             <span className="text-slate-500">বর্তমান বকেয়া</span>
-                             <span className={`${selectedWorkerBalance > 0 ? 'text-red-500' : 'text-green-500'}`}>৳ {selectedWorkerBalance}</span>
+                          <div className="flex justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-medium border border-slate-100 dark:border-slate-700">
+                             <span className="text-slate-500 dark:text-slate-400">বর্তমান বকেয়া</span>
+                             <span className={`font-bold ${selectedWorkerBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {selectedWorkerBalance}</span>
                           </div>
                        )}
                     </div>
                  )}
 
                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{t('amount')}</label>
-                    <div className="relative">
-                       <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl">৳</span>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('amount')}</label>
+                    <div className="relative group">
+                       <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-2xl">৳</span>
                        <input 
                          type="number" 
                          required
@@ -287,7 +331,7 @@ export const ContractorDashboard = () => {
                          value={activeModal === 'payment' ? payForm.amount : txForm.amount}
                          onChange={(e) => activeModal === 'payment' ? setPayForm({...payForm, amount: e.target.value}) : setTxForm({...txForm, amount: e.target.value})}
                          placeholder="0"
-                         className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-3xl font-bold text-slate-900 dark:text-white placeholder-slate-300"
+                         className="w-full pl-14 pr-6 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-3xl font-bold text-slate-900 dark:text-white placeholder-slate-300 transition-all focus:bg-white dark:focus:bg-slate-900 shadow-inner"
                        />
                     </div>
                  </div>
@@ -295,38 +339,41 @@ export const ContractorDashboard = () => {
                  {activeModal !== 'payment' && (
                    <>
                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{t('description')}</label>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('description')}</label>
                         <input 
                           type="text" 
                           required
                           value={txForm.description}
                           onChange={(e) => setTxForm({...txForm, description: e.target.value})}
                           placeholder={activeModal === 'income' ? t('source_placeholder') : t('expense_placeholder')}
-                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-medium"
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-medium text-slate-900 dark:text-white transition-all"
                         />
                      </div>
                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{t('project_optional')}</label>
-                        <select 
-                           value={txForm.projectId}
-                           onChange={(e) => setTxForm({...txForm, projectId: e.target.value})}
-                           className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-medium"
-                        >
-                           <option value="">{t('general_project')}</option>
-                           {projects.filter(p => p.status === 'active').map(p => (
-                              <option key={p.id} value={p.id}>{p.project_name}</option>
-                           ))}
-                        </select>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('project_optional')}</label>
+                        <div className="relative">
+                           <select 
+                              value={txForm.projectId}
+                              onChange={(e) => setTxForm({...txForm, projectId: e.target.value})}
+                              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-medium text-slate-900 dark:text-white transition-all appearance-none"
+                           >
+                              <option value="">{t('general_project')}</option>
+                              {projects.filter(p => p.status === 'active').map(p => (
+                                 <option key={p.id} value={p.id}>{p.project_name}</option>
+                              ))}
+                           </select>
+                           <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
+                        </div>
                      </div>
                    </>
                  )}
 
                  <button 
                    type="submit" 
-                   className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg shadow-blue-200 dark:shadow-none mt-4 active:scale-95 transition-all flex items-center justify-center gap-2 
-                     ${activeModal === 'income' ? 'bg-indigo-600 hover:bg-indigo-700' : 
-                       activeModal === 'payment' ? 'bg-emerald-600 hover:bg-emerald-700' : 
-                       'bg-red-600 hover:bg-red-700'}`}
+                   className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg shadow-gray-200 dark:shadow-none mt-2 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base
+                     ${activeModal === 'income' ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-200 dark:shadow-emerald-900/30' : 
+                       activeModal === 'payment' ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-200 dark:shadow-blue-900/30' : 
+                       'bg-rose-600 hover:bg-rose-500 shadow-rose-200 dark:shadow-rose-900/30'}`}
                  >
                     <CheckCircle size={20} />
                     নিশ্চিত করুন
@@ -335,6 +382,17 @@ export const ContractorDashboard = () => {
            </div>
         </div>
       )}
+      
+      {/* Animation Styles */}
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up {
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
     </div>
   );
 };

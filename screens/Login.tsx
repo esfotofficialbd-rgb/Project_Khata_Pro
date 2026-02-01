@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { UserRole } from '../types';
-import { Building2, HardHat, UserCog, ArrowRight, Mail, Phone, Lock, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import { Building2, HardHat, UserCog, ArrowRight, Mail, Phone, Lock, Eye, EyeOff, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 export const Login = () => {
@@ -18,7 +18,6 @@ export const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if already logged in
   useEffect(() => {
     if (user) {
       navigate('/');
@@ -31,10 +30,7 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      // For Contractor (Email)
       let email = identifier.trim();
-      
-      // For Worker/Supervisor (Phone) -> Convert to fake email
       if (role !== 'contractor') {
          email = `${identifier.trim()}@projectkhata.local`;
       }
@@ -45,9 +41,8 @@ export const Login = () => {
       });
 
       if (error) {
-        console.error("Login Error:", error);
         if (error.message.includes("Email not confirmed")) {
-          throw new Error("আপনার ইমেইল কনফার্ম করা হয়নি। দয়া করে ইমেইল চেক করুন।");
+          throw new Error("আপনার ইমেইল কনফার্ম করা হয়নি।");
         }
         if (error.message.includes("Invalid login credentials")) {
           throw new Error("ভুল ইমেইল বা পাসওয়ার্ড দিয়েছেন।");
@@ -56,12 +51,9 @@ export const Login = () => {
       }
 
       if (data.user) {
-         // Fetch profile to verify role
          const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
          
-         if (profileError) {
-             throw new Error("প্রোফাইল লোড করা যায়নি। ইন্টারনেট সংযোগ চেক করুন।");
-         }
+         if (profileError) throw new Error("প্রোফাইল লোড করা যায়নি।");
 
          if (profile && profile.role === role) {
              toast.success('লগইন সফল হয়েছে!');
@@ -79,83 +71,110 @@ export const Login = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-900 relative flex flex-col items-center justify-center p-6 overflow-hidden">
-      {/* Background Blobs - Keep existing UI */}
-      <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-      <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-purple-600 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-      <div className="absolute -bottom-8 left-20 w-64 h-64 bg-emerald-600 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
+  const getRoleConfig = (r: UserRole) => {
+    switch(r) {
+      case 'contractor': return { color: 'blue', icon: Building2, label: 'ঠিকাদার' };
+      case 'supervisor': return { color: 'purple', icon: UserCog, label: 'সুপারভাইজার' };
+      case 'worker': return { color: 'emerald', icon: HardHat, label: 'শ্রমিক' };
+    }
+  };
 
-      <div className="relative w-full max-w-sm z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-blue-600 to-cyan-500 rounded-2xl shadow-2xl mb-4 rotate-3 transform hover:rotate-0 transition-all duration-300">
-             <Building2 className="text-white w-10 h-10" />
+  const activeConfig = getRoleConfig(role);
+
+  return (
+    <div className="min-h-screen bg-slate-950 relative flex flex-col items-center justify-center p-6 overflow-hidden font-sans selection:bg-blue-500/30">
+      
+      {/* Premium Background Effects */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+         <div className={`absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse-slow ${role === 'contractor' ? 'bg-blue-600' : role === 'supervisor' ? 'bg-purple-600' : 'bg-emerald-600'}`}></div>
+         <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse-slow animation-delay-2000"></div>
+         <div className="absolute top-[40%] left-[50%] -translate-x-1/2 w-64 h-64 bg-white/5 rounded-full blur-[80px]"></div>
+      </div>
+
+      <div className="relative w-full max-w-sm z-10 flex flex-col gap-6">
+        
+        {/* Logo & Branding */}
+        <div className="text-center">
+          <div className={`inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr rounded-[2rem] shadow-2xl mb-6 ring-4 ring-white/5 ${role === 'contractor' ? 'from-blue-600 to-indigo-500' : role === 'supervisor' ? 'from-purple-600 to-fuchsia-500' : 'from-emerald-500 to-teal-600'}`}>
+             <activeConfig.icon className="text-white w-10 h-10 drop-shadow-md" strokeWidth={1.5} />
           </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight font-serif">প্রজেক্ট খাতা</h1>
-          <p className="text-blue-200 text-sm mt-2 font-medium">স্মার্ট কনস্ট্রাকশন ম্যানেজমেন্ট</p>
+          <h1 className="text-4xl font-bold text-white tracking-tight font-serif mb-1">
+            প্রজেক্ট <span className={role === 'contractor' ? 'text-blue-400' : role === 'supervisor' ? 'text-purple-400' : 'text-emerald-400'}>খাতা</span>
+          </h1>
+          <p className="text-slate-400 text-sm font-medium tracking-wide">নির্মাণ কাজের ডিজিটাল সমাধান</p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-3xl p-6 shadow-2xl">
-          {/* Role Toggle */}
-          <div className="flex bg-slate-800/50 p-1.5 rounded-xl mb-6 backdrop-blur-sm">
+        {/* Main Card */}
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+          
+          {/* Top Gradient Line */}
+          <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${role === 'contractor' ? 'from-blue-500 via-indigo-500 to-blue-500' : role === 'supervisor' ? 'from-purple-500 via-fuchsia-500 to-purple-500' : 'from-emerald-500 via-teal-500 to-emerald-500'}`}></div>
+
+          {/* Role Switcher */}
+          <div className="flex bg-slate-950/50 p-1.5 rounded-2xl mb-8 border border-white/5 relative">
+            <div 
+               className={`absolute top-1.5 bottom-1.5 rounded-xl bg-slate-800 shadow-sm transition-all duration-300 ease-out`}
+               style={{ 
+                 left: role === 'contractor' ? '6px' : role === 'supervisor' ? 'calc(33.33% + 4px)' : 'calc(66.66% + 2px)',
+                 width: 'calc(33.33% - 6px)' 
+               }}
+            ></div>
             {[
-              { id: 'contractor', icon: Building2, label: 'ঠিকাদার', color: 'text-blue-400', bg: 'bg-blue-600/20' },
-              { id: 'supervisor', icon: UserCog, label: 'সুপারভাইজার', color: 'text-purple-400', bg: 'bg-purple-600/20' },
-              { id: 'worker', icon: HardHat, label: 'শ্রমিক', color: 'text-emerald-400', bg: 'bg-emerald-600/20' }
+              { id: 'contractor', icon: Building2 },
+              { id: 'supervisor', icon: UserCog },
+              { id: 'worker', icon: HardHat }
             ].map((item) => (
               <button
                 key={item.id}
                 onClick={() => { setRole(item.id as UserRole); setIdentifier(''); setPassword(''); setError(''); }}
-                className={`flex-1 flex flex-col items-center justify-center py-3 rounded-lg text-[10px] font-bold transition-all duration-300 ${
-                  role === item.id 
-                    ? 'bg-white shadow-lg text-slate-900 scale-100' 
-                    : 'text-slate-400 hover:text-white scale-95 hover:bg-white/5'
-                }`}
+                className={`flex-1 flex flex-col items-center justify-center py-3 relative z-10 transition-colors duration-300 ${role === item.id ? 'text-white' : 'text-slate-500 hover:text-slate-300'}`}
               >
-                <item.icon size={18} className={`mb-1 ${role === item.id ? item.color.replace('text-', 'text-slate-900') : ''}`} />
-                {item.label}
+                <item.icon size={20} strokeWidth={role === item.id ? 2.5 : 2} />
               </button>
             ))}
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-xs font-bold text-blue-200 mb-1.5 ml-1">
-                {role === 'contractor' ? 'ইমেইল' : 'মোবাইল নাম্বার'}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 ml-1">
+                {role === 'contractor' ? 'ইমেইল এড্রেস' : 'মোবাইল নাম্বার'}
               </label>
               <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  {role === 'contractor' ? <Mail className="text-slate-400 group-focus-within:text-blue-400 transition-colors" size={18} /> : <Phone className="text-slate-400 group-focus-within:text-blue-400 transition-colors" size={18} />}
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  {role === 'contractor' ? 
+                    <Mail className="text-slate-500 group-focus-within:text-white transition-colors" size={18} /> : 
+                    <Phone className="text-slate-500 group-focus-within:text-white transition-colors" size={18} />
+                  }
                 </div>
                 <input
                   type={role === 'contractor' ? "email" : "tel"}
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder={role === 'contractor' ? "example@mail.com" : "017xxxxxxxx"}
-                  className="w-full pl-10 pr-4 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium"
+                  placeholder={role === 'contractor' ? "apnar@email.com" : "017xxxxxxxx"}
+                  className="w-full pl-11 pr-4 py-4 bg-slate-950/50 border border-slate-800 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-slate-600 focus:bg-slate-950 transition-all text-sm font-medium"
                   required
                 />
               </div>
             </div>
             
-            <div>
-              <label className="block text-xs font-bold text-blue-200 mb-1.5 ml-1">পাসওয়ার্ড</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-400 ml-1">পাসওয়ার্ড</label>
               <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="text-slate-400 group-focus-within:text-blue-400 transition-colors" size={18} />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="text-slate-500 group-focus-within:text-white transition-colors" size={18} />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder={role === 'contractor' ? "••••••••" : "শেষ ৬ ডিজিট"}
-                  className="w-full pl-10 pr-10 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium"
+                  placeholder="••••••••"
+                  className="w-full pl-11 pr-11 py-4 bg-slate-950/50 border border-slate-800 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-slate-600 focus:bg-slate-950 transition-all text-sm font-medium"
                   required
                 />
                 <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-500 hover:text-white transition-colors"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -163,35 +182,44 @@ export const Login = () => {
             </div>
 
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-300 text-xs text-center font-medium animate-pulse flex items-center justify-center gap-2">
-                <AlertTriangle size={16} />
-                {error}
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-start gap-2 text-red-400 text-xs font-medium animate-in slide-in-from-top-2">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-4 rounded-xl text-white font-bold text-sm shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 transition-all transform active:scale-95 ${
-                role === 'contractor' ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400' : 
-                role === 'supervisor' ? 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400' :
-                'bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400'
-              } ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`w-full py-4 rounded-2xl text-white font-bold text-sm shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98] mt-2
+                ${role === 'contractor' ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/30' : 
+                  role === 'supervisor' ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-900/30' :
+                  'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/30'
+                } disabled:opacity-70 disabled:cursor-not-allowed`}
             >
-              {loading ? 'অপেক্ষা করুন...' : 'লগইন করুন'} <ArrowRight size={18} />
+              {loading ? (
+                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                 <>প্রবেশ করুন <ArrowRight size={18} /></>
+              )}
             </button>
           </form>
         </div>
 
-        <div className="mt-8 text-center space-y-4">
+        {/* Footer Actions */}
+        <div className="text-center space-y-4">
            {role === 'contractor' && (
-             <button 
-               onClick={() => navigate('/register')}
-               className="text-white font-bold text-sm hover:underline hover:text-blue-300 transition-colors"
-             >
-               নতুন অ্যাকাউন্ট খুলুন
-             </button>
+             <p className="text-slate-400 text-sm">
+               অ্যাকাউন্ট নেই? {' '}
+               <button 
+                 onClick={() => navigate('/register')}
+                 className="text-white font-bold hover:underline decoration-blue-500 underline-offset-4 transition-all"
+               >
+                 খুলে নিন
+               </button>
+             </p>
            )}
+           <p className="text-xs text-slate-600">v1.0.0 • Project Khata</p>
         </div>
       </div>
     </div>

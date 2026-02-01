@@ -45,7 +45,7 @@ interface DataContextType {
   addUser: (user: Profile) => Promise<void>;
   updateUser: (updatedUser: Profile) => Promise<void>;
   updateAppSettings: (settings: AppSettings) => void;
-  sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment') => Promise<void>;
+  sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment', metadata?: any) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   getUnreadCount: (userId: string) => number;
   addTransaction: (transaction: Transaction) => Promise<void>;
@@ -202,13 +202,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshData();
     }
     
-    // Realtime Subscription with Debounce logic to save quota on free plan
+    // Realtime Subscription with Debounce
     const handleRealtimeUpdate = (payload: any) => {
-       // console.log('Change received!', payload); // Debug
        if (debounceRef.current) clearTimeout(debounceRef.current);
        debounceRef.current = setTimeout(() => {
           refreshData();
-       }, 1000); // 1s debounce
+       }, 1000); 
     };
 
     const channel = supabase.channel('custom-all-channel')
@@ -221,9 +220,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on('postgres_changes', { event: '*', schema: 'public', table: 'material_logs' }, handleRealtimeUpdate)
       .subscribe((status) => {
          setRealtimeStatus(status as RealtimeStatus);
-         if (status === 'SUBSCRIBED') {
-            // console.log('Realtime Connected');
-         }
       });
 
     return () => { 
@@ -236,11 +232,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return TRANSLATIONS[appSettings.language][key] || key;
   };
 
-  // --- ACTIONS ---
+  // --- ACTIONS (With Offline Protection) ---
+
+  const checkOnline = () => {
+    if (!navigator.onLine) {
+        toast.error('ইন্টারনেট সংযোগ নেই। ডাটা সেভ করা যাচ্ছে না।');
+        return false;
+    }
+    return true;
+  };
 
   const registerUser = async (newUser: Profile) => {};
 
   const addUser = async (newUser: Profile) => {
+    if (!checkOnline()) return;
     try {
       const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
@@ -294,12 +299,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUser = async (updatedUser: Profile) => {
+    if (!checkOnline()) return;
     await supabase.from('profiles').update(updatedUser).eq('id', updatedUser.id);
     toast.success('প্রোফাইল আপডেট হয়েছে');
     refreshData();
   };
 
   const addProject = async (project: Project) => {
+    if (!checkOnline()) return;
     const { id, ...projectData } = project;
     await supabase.from('projects').insert([projectData]);
     toast.success('নতুন প্রজেক্ট তৈরি হয়েছে');
@@ -307,6 +314,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const requestProject = async (project: Project, supervisorName: string) => {
+     if (!checkOnline()) return;
      const contractor = users.find(u => u.role === 'contractor');
      if(contractor) {
         await sendNotification(contractor.id, `${supervisorName} একটি নতুন প্রজেক্ট (${project.project_name}) তৈরির অনুরোধ করেছেন।`, 'project_request', project);
@@ -315,43 +323,54 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateProject = async (project: Project) => {
+    if (!checkOnline()) return;
     await supabase.from('projects').update(project).eq('id', project.id);
     toast.success('প্রজেক্ট আপডেট হয়েছে');
     refreshData();
   };
 
   const markAttendance = async (workerId: string, status: 'P' | 'H' | 'A', projectId: string, date: string) => {
+    if (!checkOnline()) return;
     const worker = users.find(u => u.id === workerId);
     if (!worker) return;
 
     let amount = 0;
     if (status === 'P') amount = worker.daily_rate || 0;
     if (status === 'H') amount = (worker.daily_rate || 0) / 2;
+    if (status === 'A') amount = 0;
 
     const existing = attendance.find(a => a.worker_id === workerId && a.date === date);
+    
+    const pid = projectId === '' ? null : projectId;
 
-    if (existing) {
-      let oldAmount = existing.amount;
-      await supabase.from('attendance').update({ status, project_id: projectId, amount }).eq('id', existing.id);
-      
-      const newBalance = (worker.balance - oldAmount) + amount;
-      await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
-    } else {
-      await supabase.from('attendance').insert([{
-        worker_id: workerId,
-        project_id: projectId,
-        date: date,
-        status: status,
-        amount: amount,
-        overtime: 0
-      }]);
-      await supabase.from('profiles').update({ balance: worker.balance + amount }).eq('id', workerId);
+    try {
+      if (existing) {
+        let oldAmount = existing.amount;
+        await supabase.from('attendance').update({ status, project_id: pid, amount }).eq('id', existing.id);
+        
+        const newBalance = (worker.balance - oldAmount) + amount;
+        await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
+      } else {
+        await supabase.from('attendance').insert([{
+          worker_id: workerId,
+          project_id: pid,
+          date: date,
+          status: status,
+          amount: amount,
+          overtime: 0
+        }]);
+        await supabase.from('profiles').update({ balance: worker.balance + amount }).eq('id', workerId);
+      }
+      toast.success('হাজিরা আপডেট হয়েছে');
+      refreshData();
+    } catch (e: any) {
+      console.error(e);
+      toast.error('হাজিরা আপডেট ব্যর্থ হয়েছে: ' + e.message);
     }
-    toast.success('হাজিরা আপডেট হয়েছে');
-    refreshData();
   };
 
   const addOvertime = async (workerId: string, hours: number, date: string) => {
+    if (!checkOnline()) return;
     const worker = users.find(u => u.id === workerId);
     const existing = attendance.find(a => a.worker_id === workerId && a.date === date);
 
@@ -374,10 +393,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
        await supabase.from('profiles').update({ balance: worker.balance + diff }).eq('id', workerId);
        toast.success('ওভারটাইম যুক্ত হয়েছে');
        refreshData();
+    } else {
+        toast.error('শ্রমিক উপস্থিত নেই, ওভারটাইম দেওয়া যাবে না।');
     }
   };
 
   const submitAttendanceRequest = async (workerId: string, projectId: string, date: string) => {
+    if (!checkOnline()) return;
     const worker = users.find(u => u.id === workerId);
     const project = projects.find(p => p.id === projectId);
     const contractor = users.find(u => u.role === 'contractor');
@@ -394,6 +416,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const submitAdvanceRequest = async (workerId: string, amount: number) => {
+      if (!checkOnline()) return;
       const worker = users.find(u => u.id === workerId);
       const contractor = users.find(u => u.role === 'contractor');
       if (contractor && worker) {
@@ -408,8 +431,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addTransaction = async (transaction: Transaction) => {
+     if (!checkOnline()) return;
      const { id, ...txData } = transaction;
-     await supabase.from('transactions').insert([txData]);
+     
+     const txPayload = {
+         ...txData,
+         project_id: txData.project_id || null
+     };
+
+     await supabase.from('transactions').insert([txPayload]);
      
      if (transaction.project_id) {
        const proj = projects.find(p => p.id === transaction.project_id);
@@ -423,6 +453,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const payWorker = async (workerId: string, amount: number) => {
+    if (!checkOnline()) return;
     const worker = users.find(u => u.id === workerId);
     if (!worker) return;
 
@@ -462,11 +493,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const sendNotification = async (userId: string, message: string, type: any, metadata: any = null) => {
+     if (!checkOnline()) return;
+     // Standardize date to ISO
+     const dateStr = new Date().toISOString().split('T')[0];
      await supabase.from('notifications').insert([{
         user_id: userId,
         message,
         type,
-        date: new Date().toLocaleDateString('bn-BD'),
+        date: dateStr, 
         is_read: false,
         metadata
      }]);
@@ -483,6 +517,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addWorkReport = async (report: WorkReport) => {
+      if (!checkOnline()) return;
       const { id, ...data } = report;
       await supabase.from('work_reports').insert([data]);
       
@@ -500,6 +535,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addMaterialLog = async (log: MaterialLog) => {
+      if (!checkOnline()) return;
       const { id, ...data } = log;
       await supabase.from('material_logs').insert([data]);
       refreshData();
