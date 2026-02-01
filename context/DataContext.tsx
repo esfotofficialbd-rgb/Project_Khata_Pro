@@ -77,7 +77,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Helper to load initial state from cache
   const loadFromCache = <T,>(key: string, fallback: T): T => {
     try {
       const cached = localStorage.getItem(key);
@@ -102,7 +101,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('CONNECTING');
 
-  // Settings
   const [appSettings, setAppSettings] = useState<AppSettings>({
     calcMode: 'weekly',
     weekStartDay: 'Saturday',
@@ -111,7 +109,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     darkMode: false
   });
 
-  // Debounce Ref for Realtime
   const debounceRef = useRef<any>(null);
 
   useEffect(() => {
@@ -141,7 +138,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('pk_settings', JSON.stringify(appSettings));
   }, [appSettings]);
 
-  // Fetch Data from Supabase
   const refreshData = async () => {
     if (!user || !navigator.onLine) {
         setIsLoadingData(false);
@@ -149,7 +145,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const results = await Promise.allSettled([
+      const [usersRes, projectsRes, attRes, txRes, notifRes, reportsRes, matRes] = await Promise.all([
         supabase.from('profiles').select('*').limit(1000),
         supabase.from('projects').select('*').limit(1000),
         supabase.from('attendance').select('*').limit(5000),
@@ -159,36 +155,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supabase.from('material_logs').select('*').limit(500)
       ]);
 
-      const [usersRes, projectsRes, attRes, txRes, notifRes, reportsRes, matRes] = results;
-
-      if (usersRes.status === 'fulfilled' && usersRes.value.data) {
-         setUsers(usersRes.value.data);
-         localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(usersRes.value.data));
-      }
-      if (projectsRes.status === 'fulfilled' && projectsRes.value.data) {
-         setProjects(projectsRes.value.data);
-         localStorage.setItem(CACHE_KEYS.PROJECTS, JSON.stringify(projectsRes.value.data));
-      }
-      if (attRes.status === 'fulfilled' && attRes.value.data) {
-         setAttendance(attRes.value.data);
-         localStorage.setItem(CACHE_KEYS.ATTENDANCE, JSON.stringify(attRes.value.data));
-      }
-      if (txRes.status === 'fulfilled' && txRes.value.data) {
-         setTransactions(txRes.value.data);
-         localStorage.setItem(CACHE_KEYS.TRANSACTIONS, JSON.stringify(txRes.value.data));
-      }
-      if (notifRes.status === 'fulfilled' && notifRes.value.data) {
-         setNotifications(notifRes.value.data);
-         localStorage.setItem(CACHE_KEYS.NOTIFICATIONS, JSON.stringify(notifRes.value.data));
-      }
-      if (reportsRes.status === 'fulfilled' && reportsRes.value.data) {
-         setWorkReports(reportsRes.value.data);
-         localStorage.setItem(CACHE_KEYS.REPORTS, JSON.stringify(reportsRes.value.data));
-      }
-      if (matRes.status === 'fulfilled' && matRes.value.data) {
-         setMaterialLogs(matRes.value.data);
-         localStorage.setItem(CACHE_KEYS.MATERIALS, JSON.stringify(matRes.value.data));
-      }
+      if (usersRes.data) { setUsers(usersRes.data); localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(usersRes.data)); }
+      if (projectsRes.data) { setProjects(projectsRes.data); localStorage.setItem(CACHE_KEYS.PROJECTS, JSON.stringify(projectsRes.data)); }
+      if (attRes.data) { setAttendance(attRes.data); localStorage.setItem(CACHE_KEYS.ATTENDANCE, JSON.stringify(attRes.data)); }
+      if (txRes.data) { setTransactions(txRes.data); localStorage.setItem(CACHE_KEYS.TRANSACTIONS, JSON.stringify(txRes.data)); }
+      if (notifRes.data) { setNotifications(notifRes.data); localStorage.setItem(CACHE_KEYS.NOTIFICATIONS, JSON.stringify(notifRes.data)); }
+      if (reportsRes.data) { setWorkReports(reportsRes.data); localStorage.setItem(CACHE_KEYS.REPORTS, JSON.stringify(reportsRes.data)); }
+      if (matRes.data) { setMaterialLogs(matRes.data); localStorage.setItem(CACHE_KEYS.MATERIALS, JSON.stringify(matRes.data)); }
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -202,22 +175,29 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshData();
     }
     
-    // Realtime Subscription with Debounce
-    const handleRealtimeUpdate = (payload: any) => {
+    // --- Realtime Subscription Logic ---
+    const handleGeneralUpdate = () => {
        if (debounceRef.current) clearTimeout(debounceRef.current);
        debounceRef.current = setTimeout(() => {
           refreshData();
-       }, 1000); 
+       }, 2000); // 2-second debounce for general data to avoid hammering
     };
 
-    const channel = supabase.channel('custom-all-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleRealtimeUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleRealtimeUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, handleRealtimeUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, handleRealtimeUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, handleRealtimeUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_reports' }, handleRealtimeUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'material_logs' }, handleRealtimeUpdate)
+    const channel = supabase.channel('app-realtime-channel')
+      // 1. Listen for new Notifications specifically for the logged-in user
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+          const newNotif = payload.new as Notification;
+          if (newNotif.user_id === user?.id) {
+             setNotifications(prev => [newNotif, ...prev]); // Instant State Update
+             toast.info(newNotif.message); // Instant UI Feedback
+          }
+      })
+      // 2. Listen for other data changes to refresh context
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleGeneralUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleGeneralUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, handleGeneralUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, handleGeneralUpdate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_reports' }, handleGeneralUpdate)
       .subscribe((status) => {
          setRealtimeStatus(status as RealtimeStatus);
       });
@@ -231,8 +211,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const t = (key: keyof typeof TRANSLATIONS.bn) => {
     return TRANSLATIONS[appSettings.language][key] || key;
   };
-
-  // --- ACTIONS (With Offline Protection) ---
 
   const checkOnline = () => {
     if (!navigator.onLine) {
@@ -494,7 +472,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendNotification = async (userId: string, message: string, type: any, metadata: any = null) => {
      if (!checkOnline()) return;
-     // Standardize date to ISO
      const dateStr = new Date().toISOString().split('T')[0];
      await supabase.from('notifications').insert([{
         user_id: userId,
@@ -504,12 +481,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         is_read: false,
         metadata
      }]);
-     refreshData();
+     // No need to refreshData() here manually, the realtime subscription will catch it
   };
 
   const markNotificationAsRead = async (id: string) => {
      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-     refreshData();
+     // Update local state immediately for UI responsiveness
+     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
   const getUnreadCount = (userId: string) => {

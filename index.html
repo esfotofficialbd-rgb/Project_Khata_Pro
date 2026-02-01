@@ -3,11 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#2563eb" />
+    <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Project Khata</title>
+    <meta name="apple-mobile-web-app-title" content="প্রজেক্ট খাতা" />
+    
+    <title>প্রজেক্ট খাতা</title>
+    
+    <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
+    
+    <!-- App Icons for Browser & Mobile Home Screen -->
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2942/2942838.png" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2942/2942838.png" />
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -42,7 +51,7 @@
     <style>
       body {
         font-family: 'Hind Siliguri', sans-serif;
-        background-color: #f8fafc;
+        background-color: #0f172a; /* Matches Splash Screen Background */
         -webkit-tap-highlight-color: transparent;
         overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
       }

@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 interface SessionContextType {
   user: Profile | null;
   setUser: (user: Profile | null) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -32,12 +32,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (session?.user) {
+          // If we have a session but no local user state, or ID mismatch, fetch profile
           if (!user || user.id !== session.user.id) {
              await fetchProfile(session.user.id);
           } else {
              if (mounted) setLoading(false);
           }
         } else {
+          // No session found
           if (mounted) {
              setUserState(null);
              localStorage.removeItem('pk_user_profile');
@@ -53,8 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user) {
            if (!user || user.id !== session.user.id) {
               await fetchProfile(session.user.id);
            }
@@ -105,9 +107,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUserState(null);
-    localStorage.removeItem('pk_user_profile');
+    try {
+        await supabase.auth.signOut();
+    } catch (e) {
+        console.error("Sign out error", e);
+    } finally {
+        setUserState(null);
+        localStorage.removeItem('pk_user_profile');
+        localStorage.clear(); // Clear all app data on logout for safety
+    }
   };
 
   return (

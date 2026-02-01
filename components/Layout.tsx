@@ -103,6 +103,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
      else statusColor = 'bg-red-500';
   }
 
+  const handleLogout = async () => {
+      setIsMenuOpen(false);
+      await logout();
+      navigate('/login');
+  };
+
   const daysOfWeek = [
     { en: 'Saturday', bn: 'শনিবার' },
     { en: 'Sunday', bn: 'রবিবার' },
@@ -216,7 +222,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                </div>
 
                <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-                  <button onClick={() => { setIsMenuOpen(false); logout(); navigate('/login'); }} className="w-full flex items-center justify-center gap-2 p-3.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 p-3.5 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl font-bold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors">
                      <LogOut size={20} />
                      {t('logout')}
                   </button>
@@ -226,7 +232,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       )}
 
-      {/* Settings Modal - Modernized */}
+      {/* Settings Modal */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsSettingsModalOpen(false)}></div>

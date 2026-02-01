@@ -97,7 +97,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             ></div>
          </div>
          <div className="flex justify-between w-full text-[10px] text-slate-400 font-mono">
-            <span>লোডিং...</span>
+            <span>Loading...</span>
             <span>{Math.min(progress, 100)}%</span>
          </div>
       </div>
@@ -108,4 +108,4 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
       </div>
     </div>
   );
-};
+}

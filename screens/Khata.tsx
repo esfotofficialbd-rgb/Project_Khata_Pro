@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useLocation } from 'react-router-dom';
-import { Calendar, ChevronLeft, ChevronRight, X, Search, QrCode, Clock, CheckCircle, UserCheck, RefreshCw, Smartphone } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, X, Search, QrCode, Clock, CheckCircle, UserCheck, RefreshCw, Smartphone, AlertTriangle } from 'lucide-react';
 import jsQR from 'jsqr';
 
 export const Khata = () => {
@@ -20,6 +20,7 @@ export const Khata = () => {
   // Scanner State
   const [isScanning, setIsScanning] = useState(false);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [scanError, setScanError] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(0);
@@ -109,8 +110,8 @@ export const Khata = () => {
       gainNode.connect(audioContext.destination);
       
       oscillator.type = "sine";
-      oscillator.frequency.value = 1000; // Frequency in Hz
-      gainNode.gain.value = 0.1; // Volume
+      oscillator.frequency.value = 1000;
+      gainNode.gain.value = 0.1;
       
       oscillator.start();
       setTimeout(() => {
@@ -118,7 +119,6 @@ export const Khata = () => {
           audioContext.close();
       }, 150);
 
-      // Haptic feedback if available
       if (navigator.vibrate) {
         navigator.vibrate(200);
       }
@@ -129,41 +129,56 @@ export const Khata = () => {
 
   const startScanning = () => {
     setIsScanning(true);
+    setScanError('');
+    
+    // Ensure cleanup first
+    stopScanning();
+
     navigator.mediaDevices.getUserMedia({ video: { facingMode: facingMode } })
       .then((stream) => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.setAttribute("playsinline", "true");
-          videoRef.current.play();
-          requestRef.current = requestAnimationFrame(tick);
+          // Crucial for iOS
+          videoRef.current.setAttribute("playsinline", "true"); 
+          videoRef.current.play().then(() => {
+             requestRef.current = requestAnimationFrame(tick);
+          }).catch(e => {
+             console.error("Video play error:", e);
+             setScanError("ক্যামেরা চালু করতে সমস্যা হচ্ছে।");
+          });
         }
       })
       .catch((err) => {
         console.error(err);
-        alert("ক্যামেরা চালু করা যাচ্ছে না। দয়া করে পারমিশন চেক করুন।");
-        setIsScanning(false);
+        setScanError("ক্যামেরা পারমিশন পাওয়া যায়নি।");
+        // Don't close immediately, show error
       });
   };
-
-  // Re-initialize scan if camera flips
-  useEffect(() => {
-      if (isScanning) {
-          stopScanning();
-          startScanning();
-      }
-  }, [facingMode]);
 
   const toggleCamera = () => {
       setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
+  // Re-init on camera toggle
+  useEffect(() => {
+      if (isScanning && !scanError) {
+          startScanning();
+      }
+  }, [facingMode]);
+
   const stopScanning = () => {
-    setIsScanning(false);
+    if (requestRef.current) {
+        cancelAnimationFrame(requestRef.current);
+        requestRef.current = 0;
+    }
+    
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    
+    setIsScanning(false);
   };
 
   const tick = () => {
@@ -177,20 +192,25 @@ export const Khata = () => {
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          
           const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
           
           if (code) {
              const worker = workers.find(w => w.id === code.data);
              if (worker) {
-               stopScanning();
-               playBeep(); // Success Sound
+               // Found valid worker
+               if (requestRef.current) cancelAnimationFrame(requestRef.current);
+               playBeep();
                
-               // Small delay for UX
+               // Pause video to freeze frame
+               video.pause();
+               
                setTimeout(() => {
+                 stopScanning();
                  setCurrentAction({ workerId: worker.id, status: 'P' });
                  setModalOpen(true);
-               }, 300);
-               return;
+               }, 500);
+               return; 
              }
           }
         }
@@ -411,11 +431,21 @@ export const Khata = () => {
             </button>
             
             <div className="relative w-full max-w-sm aspect-square bg-black overflow-hidden rounded-3xl shadow-2xl mx-4 border border-slate-800">
-               <video ref={videoRef} className="w-full h-full object-cover" />
-               <canvas ref={canvasRef} className="hidden" />
-               <div className="absolute inset-0 border-2 border-blue-500/50 m-12 rounded-2xl flex items-center justify-center">
-                  <div className="w-full h-0.5 bg-blue-500 shadow-[0_0_10px_#3b82f6] animate-scan absolute"></div>
-               </div>
+               {scanError ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                     <AlertTriangle size={48} className="text-red-500 mb-2"/>
+                     <p className="text-white text-sm font-bold">{scanError}</p>
+                     <button onClick={startScanning} className="mt-4 px-4 py-2 bg-white text-black rounded-lg text-xs font-bold">পুনরায় চেষ্টা করুন</button>
+                  </div>
+               ) : (
+                  <>
+                     <video ref={videoRef} className="w-full h-full object-cover" />
+                     <canvas ref={canvasRef} className="hidden" />
+                     <div className="absolute inset-0 border-2 border-blue-500/50 m-12 rounded-2xl flex items-center justify-center">
+                        <div className="w-full h-0.5 bg-blue-500 shadow-[0_0_10px_#3b82f6] animate-scan absolute"></div>
+                     </div>
+                  </>
+               )}
                <div className="absolute bottom-6 left-0 right-0 text-center pointer-events-none">
                   <p className="text-white/90 text-sm font-bold bg-black/60 inline-block px-4 py-2 rounded-full backdrop-blur-md">
                      শ্রমিকের QR কোডটি ফ্রেমে ধরুন
