@@ -31,41 +31,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (error) {
-            console.warn("Session check error:", error.message);
-            // Handle invalid refresh token or other session errors
+        if (error || !session) {
             if (mounted) {
-                setUserState(null);
-                localStorage.removeItem('pk_user_profile');
-                // Try to force sign out on supabase client to clean up local storage keys
-                await supabase.auth.signOut().catch(() => {});
+                // Only clear if we really don't have a session to avoid flickering if caching exists
+                if (!session) {
+                    setUserState(null);
+                    localStorage.removeItem('pk_user_profile');
+                }
                 setLoading(false);
             }
             return;
         }
 
-        if (session?.user) {
-          // If we have a session but no local user state, or ID mismatch, fetch profile
-          if (!user || user.id !== session.user.id) {
-             await fetchProfile(session.user.id);
-          } else {
-             if (mounted) setLoading(false);
-          }
-        } else {
-          // No session found
-          if (mounted) {
-             setUserState(null);
-             localStorage.removeItem('pk_user_profile');
-             setLoading(false);
-          }
+        if (session.user) {
+           // If we have a session, fetch fresh profile data
+           await fetchProfile(session.user.id);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
-        if (mounted) {
-            setUserState(null);
-            localStorage.removeItem('pk_user_profile');
-            setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
@@ -81,6 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            setUserState(null);
            localStorage.removeItem('pk_user_profile');
            setLoading(false);
+        }
+      } else if (event === 'INITIAL_SESSION') {
+        // Handle initial session load completion if fetchProfile hasn't run yet
+        if (!session && mounted) {
+            setLoading(false);
         }
       }
     });
@@ -122,6 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    setLoading(true);
     try {
         await supabase.auth.signOut();
     } catch (e) {
@@ -129,7 +119,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
         setUserState(null);
         localStorage.removeItem('pk_user_profile');
-        localStorage.clear(); // Clear all app data on logout for safety
+        localStorage.clear(); 
+        setLoading(false);
     }
   };
 

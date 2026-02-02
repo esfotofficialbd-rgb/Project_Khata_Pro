@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Profile, Project, Attendance, Transaction, DailyStats, Notification, WorkReport, MaterialLog, PublicNotice } from '../types';
+import { Profile, Project, Attendance, Transaction, DailyStats, Notification, WorkReport, MaterialLog, PublicNotice, UserLocation } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { supabase, supabaseUrl, supabaseAnonKey } from '../supabaseClient';
 import { useAuth } from './SessionContext';
@@ -25,6 +25,7 @@ interface DataContextType {
   workReports: WorkReport[];
   materialLogs: MaterialLog[];
   publicNotices: PublicNotice[];
+  activeLocations: UserLocation[];
   appSettings: AppSettings;
   isLoadingData: boolean;
   isOnline: boolean;
@@ -51,6 +52,7 @@ interface DataContextType {
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   getUnreadCount: (userId: string) => number;
   addTransaction: (transaction: Transaction) => Promise<void>;
+  updateUserLocation: (lat: number, lng: number, isActive: boolean) => Promise<void>;
   refreshData: () => void;
 }
 
@@ -73,7 +75,8 @@ const CACHE_KEYS = {
   NOTIFICATIONS: 'pk_data_notifications',
   REPORTS: 'pk_data_reports',
   MATERIALS: 'pk_data_materials',
-  NOTICES: 'pk_data_notices'
+  NOTICES: 'pk_data_notices',
+  LOCATIONS: 'pk_data_locations'
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -97,6 +100,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [workReports, setWorkReports] = useState<WorkReport[]>(() => loadFromCache(CACHE_KEYS.REPORTS, []));
   const [materialLogs, setMaterialLogs] = useState<MaterialLog[]>(() => loadFromCache(CACHE_KEYS.MATERIALS, []));
   const [publicNotices, setPublicNotices] = useState<PublicNotice[]>(() => loadFromCache(CACHE_KEYS.NOTICES, []));
+  const [activeLocations, setActiveLocations] = useState<UserLocation[]>(() => loadFromCache(CACHE_KEYS.LOCATIONS, []));
   
   const [isLoadingData, setIsLoadingData] = useState(() => {
      return !(localStorage.getItem(CACHE_KEYS.PROJECTS) && localStorage.getItem(CACHE_KEYS.USERS));
@@ -149,7 +153,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const [usersRes, projectsRes, attRes, txRes, notifRes, reportsRes, matRes, noticesRes] = await Promise.all([
+      const [usersRes, projectsRes, attRes, txRes, notifRes, reportsRes, matRes, noticesRes, locRes] = await Promise.all([
         supabase.from('profiles').select('*').limit(1000),
         supabase.from('projects').select('*').limit(1000),
         supabase.from('attendance').select('*').limit(5000),
@@ -157,7 +161,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         supabase.from('notifications').select('*').limit(100),
         supabase.from('work_reports').select('*').limit(500),
         supabase.from('material_logs').select('*').limit(500),
-        supabase.from('public_notices').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(20)
+        supabase.from('public_notices').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(20),
+        supabase.from('user_locations').select('*').eq('is_active', true)
       ]);
 
       if (usersRes.data) { setUsers(usersRes.data); localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(usersRes.data)); }
@@ -168,6 +173,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (reportsRes.data) { setWorkReports(reportsRes.data); localStorage.setItem(CACHE_KEYS.REPORTS, JSON.stringify(reportsRes.data)); }
       if (matRes.data) { setMaterialLogs(matRes.data); localStorage.setItem(CACHE_KEYS.MATERIALS, JSON.stringify(matRes.data)); }
       if (noticesRes.data) { setPublicNotices(noticesRes.data); localStorage.setItem(CACHE_KEYS.NOTICES, JSON.stringify(noticesRes.data)); }
+      if (locRes.data) { setActiveLocations(locRes.data); localStorage.setItem(CACHE_KEYS.LOCATIONS, JSON.stringify(locRes.data)); }
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -176,51 +182,86 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // State Management based on User Session
   useEffect(() => {
     if (user) {
+        const cachedProfile = localStorage.getItem('pk_user_profile');
+        const cachedId = cachedProfile ? JSON.parse(cachedProfile).id : null;
+
+        if (cachedId && cachedId !== user.id) {
+            clearAllDataState();
+        }
+        
         refreshData();
-    }
-    
-    // --- Realtime Subscription Logic ---
-    const handleGeneralUpdate = () => {
-       if (debounceRef.current) clearTimeout(debounceRef.current);
-       debounceRef.current = setTimeout(() => {
-          refreshData();
-       }, 2000); // 2-second debounce for general data to avoid hammering
-    };
+        
+        const handleGeneralUpdate = () => {
+           if (debounceRef.current) clearTimeout(debounceRef.current);
+           debounceRef.current = setTimeout(() => {
+              refreshData();
+           }, 2000); 
+        };
 
-    const channel = supabase.channel('app-realtime-channel')
-      // 1. Listen for new Notifications specifically for the logged-in user
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-          const newNotif = payload.new as Notification;
-          if (newNotif.user_id === user?.id) {
-             setNotifications(prev => [newNotif, ...prev]); // Instant State Update
-             toast.info('নতুন নোটিফিকেশন', newNotif.message); // Updated Call
-          }
-      })
-      // 2. Listen for public notices
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'public_notices' }, (payload) => {
-          const newNotice = payload.new as PublicNotice;
-          if (newNotice.is_active) {
-             setPublicNotices(prev => [newNotice, ...prev]);
-             toast.info('নতুন নোটিশ', 'পাবলিক ফিড চেক করুন');
-          }
-      })
-      // 3. Listen for other data changes to refresh context
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleGeneralUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleGeneralUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, handleGeneralUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, handleGeneralUpdate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_reports' }, handleGeneralUpdate)
-      .subscribe((status) => {
-         setRealtimeStatus(status as RealtimeStatus);
-      });
+        const channel = supabase.channel('app-realtime-channel')
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+              const newNotif = payload.new as Notification;
+              if (newNotif.user_id === user?.id) {
+                 setNotifications(prev => [newNotif, ...prev]);
+                 const cached = loadFromCache<Notification[]>(CACHE_KEYS.NOTIFICATIONS, []);
+                 localStorage.setItem(CACHE_KEYS.NOTIFICATIONS, JSON.stringify([newNotif, ...cached]));
+                 toast.info('নতুন নোটিফিকেশন', newNotif.message); 
+              }
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'user_locations' }, (payload) => {
+              // Realtime Location Update logic
+              const newLoc = payload.new as UserLocation;
+              if (newLoc) {
+                  setActiveLocations(prev => {
+                      // Remove old entry for this user and add new one if active
+                      const filtered = prev.filter(l => l.user_id !== newLoc.user_id);
+                      if (newLoc.is_active) return [...filtered, newLoc];
+                      return filtered;
+                  });
+              }
+          })
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'public_notices' }, (payload) => {
+              const newNotice = payload.new as PublicNotice;
+              if (newNotice.is_active) {
+                 setPublicNotices(prev => [newNotice, ...prev]);
+                 toast.info('নতুন নোটিশ', 'পাবলিক ফিড চেক করুন');
+              }
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleGeneralUpdate)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleGeneralUpdate)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, handleGeneralUpdate)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, handleGeneralUpdate)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'work_reports' }, handleGeneralUpdate)
+          .subscribe((status) => {
+             setRealtimeStatus(status as RealtimeStatus);
+          });
 
-    return () => { 
-        supabase.removeChannel(channel); 
-        if (debounceRef.current) clearTimeout(debounceRef.current);
+        return () => { 
+            supabase.removeChannel(channel); 
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        }
+
+    } else {
+        clearAllDataState();
     }
   }, [user]);
+
+  const clearAllDataState = () => {
+      setProjects([]);
+      setAttendance([]);
+      setTransactions([]);
+      setUsers([]);
+      setNotifications([]);
+      setWorkReports([]);
+      setMaterialLogs([]);
+      setPublicNotices([]);
+      setActiveLocations([]);
+      
+      Object.values(CACHE_KEYS).forEach(key => localStorage.removeItem(key));
+  };
 
   const t = (key: keyof typeof TRANSLATIONS.bn) => {
     return TRANSLATIONS[appSettings.language][key] || key;
@@ -239,18 +280,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addUser = async (newUser: Profile) => {
     if (!checkOnline()) return;
     try {
-      // 1. Sanitize Phone: Ensure only digits are used
       const cleanPhone = newUser.phone.replace(/\D/g, ''); 
       if (cleanPhone.length < 11) {
           throw new Error("মোবাইল নাম্বার সঠিক নয় (কমপক্ষে ১১ ডিজিট)");
       }
 
-      // 2. Generate Credentials
       const email = cleanPhone + '@projectkhata.local';
-      // Password is last 6 digits of the clean phone number
       const password = cleanPhone.slice(-6);
 
-      // 3. Create Auth User using Temporary Client
       const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
         auth: { 
             persistSession: false, 
@@ -275,7 +312,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
 
       if (data.user) {
-        // 4. Create Profile Entry
         const profileData: Profile = {
            id: data.user.id,
            is_verified: true,
@@ -287,30 +323,26 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
            payment_type: newUser.payment_type || null,
            assigned_project_id: newUser.assigned_project_id || null,
            role: newUser.role,
-           phone: cleanPhone, // Store the clean phone
+           phone: cleanPhone,
            full_name: newUser.full_name,
            avatar_url: newUser.avatar_url,
            company_name: newUser.company_name,
            email: email
         };
         
-        // Upsert into database
         const { error: dbError } = await tempSupabase.from('profiles').upsert(profileData);
         
         if (dbError) throw dbError;
 
-        // 5. Update Local State Immediately
         setUsers(prevUsers => {
             const exists = prevUsers.find(u => u.id === profileData.id);
             if (exists) return prevUsers;
             return [...prevUsers, profileData];
         });
         
-        // Also update cache
         const currentCached = loadFromCache<Profile[]>(CACHE_KEYS.USERS, []);
         localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify([...currentCached, profileData]));
 
-        // 6. Show Success Message with Credentials in New Toast Style
         toast.success(
             'সফলভাবে যুক্ত হয়েছে!', 
             `মোবাইল: ${cleanPhone}\nপাসওয়ার্ড: ${password}`
@@ -335,8 +367,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
        return;
     }
     toast.success('প্রোফাইল আপডেট হয়েছে');
-    
-    // Optimistic Update
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
   };
 
@@ -361,8 +391,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
        return;
     }
     toast.success('নতুন প্রজেক্ট তৈরি হয়েছে');
-    
-    // Optimistic Update
     setProjects(prev => [...prev, sanitizedProject]);
   };
   
@@ -399,7 +427,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (status === 'A') amount = 0;
 
     const existing = attendance.find(a => a.worker_id === workerId && a.date === date);
-    
     const pid = projectId === '' ? null : projectId;
 
     try {
@@ -408,26 +435,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error: attError } = await supabase.from('attendance').update({ status, project_id: pid, amount }).eq('id', existing.id);
         if (attError) throw attError;
         
-        // Optimistic State Update for Attendance
         setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, status, project_id: pid || '', amount } : a));
 
         const newBalance = (worker.balance - oldAmount) + amount;
         await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
-        
-        // Optimistic State Update for User Balance
         setUsers(prev => prev.map(u => u.id === workerId ? { ...u, balance: newBalance } : u));
 
       } else {
-        const newRecord: Attendance = {
-          id: Date.now().toString(), // Temp ID
-          worker_id: workerId,
-          project_id: pid || '',
-          date: date,
-          status: status,
-          amount: amount,
-          overtime: 0
-        };
-
         const { data, error: attError } = await supabase.from('attendance').insert([{
           worker_id: workerId,
           project_id: pid,
@@ -438,7 +452,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }]).select();
 
         if (attError) throw attError;
-        
         if (data) {
             setAttendance(prev => [...prev, data[0] as Attendance]);
         }
@@ -477,7 +490,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
        await supabase.from('profiles').update({ balance: worker.balance + diff }).eq('id', workerId);
        
-       // Optimistic updates
        setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, overtime: hours, amount: totalAmount } : a));
        setUsers(prev => prev.map(u => u.id === workerId ? { ...u, balance: u.balance + diff } : u));
 
@@ -492,7 +504,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const worker = users.find(u => u.id === workerId);
     const project = projects.find(p => p.id === projectId);
     const contractor = users.find(u => u.role === 'contractor');
-    
     const supervisors = users.filter(u => u.role === 'supervisor' && (!u.assigned_project_id || u.assigned_project_id === projectId));
     
     if (worker && project) {
@@ -531,7 +542,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addTransaction = async (transaction: Transaction) => {
      if (!checkOnline()) return;
-     
      const txPayload = {
          ...transaction,
          project_id: transaction.project_id || null,
@@ -618,11 +628,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         metadata
      }]).select();
      
-     if (data) {
-         // Optimistically update if sending to self (rare)
-         if (userId === user?.id) {
-             setNotifications(prev => [data[0] as Notification, ...prev]);
-         }
+     if (data && userId === user?.id) {
+         setNotifications(prev => [data[0] as Notification, ...prev]);
      }
   };
 
@@ -641,7 +648,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (error) {
          toast.error('রিপোর্ট পাঠানো যায়নি');
-         return;
+         throw error;
       }
       
       if(data) {
@@ -696,6 +703,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.info('সেটিংস আপডেট হয়েছে');
   };
 
+  const updateUserLocation = async (lat: number, lng: number, isActive: boolean) => {
+      if (!user) return;
+      await supabase.from('user_locations').upsert({
+          user_id: user.id,
+          lat,
+          lng,
+          is_active: isActive,
+          last_updated: new Date().toISOString()
+      });
+  };
+
   return (
     <DataContext.Provider value={{
       users,
@@ -706,6 +724,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       workReports,
       materialLogs,
       publicNotices,
+      activeLocations,
       appSettings,
       isLoadingData,
       isOnline,
@@ -732,6 +751,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addWorkReport,
       addMaterialLog,
       addPublicNotice,
+      updateUserLocation,
       refreshData
     }}>
       {children}
