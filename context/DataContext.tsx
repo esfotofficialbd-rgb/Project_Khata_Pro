@@ -189,7 +189,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const newNotif = payload.new as Notification;
           if (newNotif.user_id === user?.id) {
              setNotifications(prev => [newNotif, ...prev]); // Instant State Update
-             toast.info(newNotif.message); // Instant UI Feedback
+             toast.info('নতুন নোটিফিকেশন', newNotif.message); // Updated Call
           }
       })
       // 2. Listen for other data changes to refresh context
@@ -214,7 +214,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkOnline = () => {
     if (!navigator.onLine) {
-        toast.error('ইন্টারনেট সংযোগ নেই। ডাটা সেভ করা যাচ্ছে না।');
+        toast.error('ইন্টারনেট সংযোগ নেই', 'ডাটা সেভ করা যাচ্ছে না।');
         return false;
     }
     return true;
@@ -225,6 +225,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addUser = async (newUser: Profile) => {
     if (!checkOnline()) return;
     try {
+      // 1. Sanitize Phone: Ensure only digits are used
+      const cleanPhone = newUser.phone.replace(/\D/g, ''); 
+      if (cleanPhone.length < 11) {
+          throw new Error("মোবাইল নাম্বার সঠিক নয় (কমপক্ষে ১১ ডিজিট)");
+      }
+
+      // 2. Generate Credentials
+      const email = cleanPhone + '@projectkhata.local';
+      // Password is last 6 digits of the clean phone number
+      const password = cleanPhone.slice(-6);
+
+      // 3. Create Auth User using Temporary Client
       const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
         auth: { 
             persistSession: false, 
@@ -233,16 +245,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
 
-      const email = newUser.phone + '@projectkhata.local';
-      const password = newUser.phone.slice(-6);
-
       const { data, error } = await tempSupabase.auth.signUp({
         email: email,
         password: password,
         options: {
           data: {
             full_name: newUser.full_name,
-            phone: newUser.phone,
+            phone: cleanPhone,
             role: newUser.role,
             company_name: newUser.company_name
           }
@@ -252,7 +261,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
 
       if (data.user) {
-        const updates: any = {
+        // 4. Create Profile Entry
+        const profileData: Profile = {
            id: data.user.id,
            is_verified: true,
            balance: 0,
@@ -263,23 +273,43 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
            payment_type: newUser.payment_type || null,
            assigned_project_id: newUser.assigned_project_id || null,
            role: newUser.role,
-           phone: newUser.phone,
+           phone: cleanPhone, // Store the clean phone
            full_name: newUser.full_name,
            avatar_url: newUser.avatar_url,
            company_name: newUser.company_name,
            email: email
         };
         
-        const { error: dbError } = await tempSupabase.from('profiles').upsert(updates);
+        // Upsert into database
+        const { error: dbError } = await tempSupabase.from('profiles').upsert(profileData);
+        
         if (dbError) throw dbError;
+
+        // 5. Update Local State Immediately
+        setUsers(prevUsers => {
+            const exists = prevUsers.find(u => u.id === profileData.id);
+            if (exists) return prevUsers;
+            return [...prevUsers, profileData];
+        });
+        
+        // Also update cache
+        const currentCached = loadFromCache<Profile[]>(CACHE_KEYS.USERS, []);
+        localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify([...currentCached, profileData]));
+
+        // 6. Show Success Message with Credentials in New Toast Style
+        toast.success(
+            'সফলভাবে যুক্ত হয়েছে!', 
+            `মোবাইল: ${cleanPhone}\nপাসওয়ার্ড: ${password}`
+        );
+        return { success: true, password: password, phone: cleanPhone };
       }
       
-      toast.success('নতুন কর্মী সফলভাবে যুক্ত হয়েছে! পাসওয়ার্ড: ' + password);
-      refreshData();
-
     } catch (error: any) {
       console.error(error);
-      toast.error('ত্রুটি: ' + error.message);
+      let msg = error.message;
+      if(msg.includes("already registered")) msg = "এই মোবাইল নাম্বার দিয়ে ইতিমধ্যে অ্যাকাউন্ট খোলা আছে।";
+      toast.error('ত্রুটি', msg);
+      return { success: false };
     }
   };
 
@@ -287,11 +317,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!checkOnline()) return;
     const { error } = await supabase.from('profiles').update(updatedUser).eq('id', updatedUser.id);
     if (error) {
-       toast.error('আপডেট ব্যর্থ: ' + error.message);
+       toast.error('আপডেট ব্যর্থ', error.message);
        return;
     }
     toast.success('প্রোফাইল আপডেট হয়েছে');
-    refreshData();
+    
+    // Optimistic Update
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
   };
 
   const addProject = async (project: Project) => {
@@ -311,11 +343,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (error) {
        console.error("Project Insert Error:", error);
-       toast.error('প্রজেক্ট তৈরি করা যায়নি: ' + (error.message || error.details || 'Unknown Error'));
+       toast.error('ব্যর্থ', 'প্রজেক্ট তৈরি করা যায়নি: ' + (error.message || error.details || 'Unknown Error'));
        return;
     }
     toast.success('নতুন প্রজেক্ট তৈরি হয়েছে');
-    refreshData();
+    
+    // Optimistic Update
+    setProjects(prev => [...prev, sanitizedProject]);
   };
   
   const requestProject = async (project: Project, supervisorName: string) => {
@@ -325,7 +359,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await sendNotification(contractor.id, `${supervisorName} একটি নতুন প্রজেক্ট (${project.project_name}) তৈরির অনুরোধ করেছেন।`, 'project_request', project);
         toast.info('অনুরোধ পাঠানো হয়েছে');
      } else {
-        toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি। রিকোয়েস্ট পাঠানো যায়নি।');
+        toast.error('ব্যর্থ', 'ঠিকাদার খুঁজে পাওয়া যায়নি।');
      }
   };
 
@@ -333,11 +367,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!checkOnline()) return;
     const { error } = await supabase.from('projects').update(project).eq('id', project.id);
     if (error) {
-       toast.error('আপডেট ব্যর্থ: ' + error.message);
+       toast.error('আপডেট ব্যর্থ', error.message);
        return;
     }
     toast.success('প্রজেক্ট আপডেট হয়েছে');
-    refreshData();
+    setProjects(prev => prev.map(p => p.id === project.id ? project : p));
   };
 
   const markAttendance = async (workerId: string, status: 'P' | 'H' | 'A', projectId: string, date: string) => {
@@ -360,25 +394,49 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { error: attError } = await supabase.from('attendance').update({ status, project_id: pid, amount }).eq('id', existing.id);
         if (attError) throw attError;
         
+        // Optimistic State Update for Attendance
+        setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, status, project_id: pid || '', amount } : a));
+
         const newBalance = (worker.balance - oldAmount) + amount;
         await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
+        
+        // Optimistic State Update for User Balance
+        setUsers(prev => prev.map(u => u.id === workerId ? { ...u, balance: newBalance } : u));
+
       } else {
-        const { error: attError } = await supabase.from('attendance').insert([{
+        const newRecord: Attendance = {
+          id: Date.now().toString(), // Temp ID
+          worker_id: workerId,
+          project_id: pid || '',
+          date: date,
+          status: status,
+          amount: amount,
+          overtime: 0
+        };
+
+        const { data, error: attError } = await supabase.from('attendance').insert([{
           worker_id: workerId,
           project_id: pid,
           date: date,
           status: status,
           amount: amount,
           overtime: 0
-        }]);
+        }]).select();
+
         if (attError) throw attError;
-        await supabase.from('profiles').update({ balance: worker.balance + amount }).eq('id', workerId);
+        
+        if (data) {
+            setAttendance(prev => [...prev, data[0] as Attendance]);
+        }
+
+        const newBalance = worker.balance + amount;
+        await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
+        setUsers(prev => prev.map(u => u.id === workerId ? { ...u, balance: newBalance } : u));
       }
       toast.success('হাজিরা আপডেট হয়েছে');
-      refreshData();
     } catch (e: any) {
       console.error(e);
-      toast.error('হাজিরা আপডেট ব্যর্থ হয়েছে: ' + e.message);
+      toast.error('হাজিরা আপডেট ব্যর্থ হয়েছে', e.message);
     }
   };
 
@@ -404,10 +462,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
        }).eq('id', existing.id);
 
        await supabase.from('profiles').update({ balance: worker.balance + diff }).eq('id', workerId);
+       
+       // Optimistic updates
+       setAttendance(prev => prev.map(a => a.id === existing.id ? { ...a, overtime: hours, amount: totalAmount } : a));
+       setUsers(prev => prev.map(u => u.id === workerId ? { ...u, balance: u.balance + diff } : u));
+
        toast.success('ওভারটাইম যুক্ত হয়েছে');
-       refreshData();
     } else {
-        toast.error('শ্রমিক উপস্থিত নেই, ওভারটাইম দেওয়া যাবে না।');
+        toast.error('ব্যর্থ', 'শ্রমিক উপস্থিত নেই, ওভারটাইম দেওয়া যাবে না।');
     }
   };
 
@@ -417,37 +479,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const project = projects.find(p => p.id === projectId);
     const contractor = users.find(u => u.role === 'contractor');
     
-    // Find Supervisors: Assigned to this project OR General supervisors (no project assigned)
     const supervisors = users.filter(u => u.role === 'supervisor' && (!u.assigned_project_id || u.assigned_project_id === projectId));
     
     if (worker && project) {
        const message = `${worker.full_name} হাজিরা রিকোয়েস্ট পাঠিয়েছেন (${project.project_name})`;
        const metadata = { workerId, projectId, date, workerName: worker.full_name, projectName: project.project_name };
 
-       // 1. Send to Contractor
        if (contractor) {
-          await sendNotification(
-             contractor.id, 
-             message, 
-             'attendance_request',
-             metadata
-          );
+          await sendNotification(contractor.id, message, 'attendance_request', metadata);
        }
-
-       // 2. Send to Supervisors
        for (const sup of supervisors) {
-           await sendNotification(
-             sup.id, 
-             message, 
-             'attendance_request',
-             metadata
-          );
+           await sendNotification(sup.id, message, 'attendance_request', metadata);
        }
-
        toast.success('রিকোয়েস্ট পাঠানো হয়েছে');
     } else {
-        if (!contractor) toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি। রিকোয়েস্ট পাঠানো যায়নি।');
-        else if (!project) toast.error('প্রজেক্ট খুঁজে পাওয়া যায়নি।');
+        if (!contractor) toast.error('ব্যর্থ', 'ঠিকাদার খুঁজে পাওয়া যায়নি।');
+        else if (!project) toast.error('ব্যর্থ', 'প্রজেক্ট খুঁজে পাওয়া যায়নি।');
     }
   };
 
@@ -464,7 +511,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
          );
          toast.success('আবেদন পাঠানো হয়েছে');
       } else {
-         toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি। আবেদন পাঠানো যায়নি।');
+         toast.error('ব্যর্থ', 'ঠিকাদার খুঁজে পাওয়া যায়নি।');
       }
   };
 
@@ -477,10 +524,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
          amount: isNaN(Number(transaction.amount)) ? 0 : Number(transaction.amount)
      };
 
-     const { error } = await supabase.from('transactions').insert([txPayload]);
+     const { data, error } = await supabase.from('transactions').insert([txPayload]).select();
      if (error) {
         console.error("Transaction Error:", error);
-        toast.error('লেনদেন সেভ হয়নি: ' + error.message);
+        toast.error('লেনদেন সেভ হয়নি', error.message);
         return;
      }
      
@@ -489,10 +536,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
        if (proj) {
          const newExpense = (proj.current_expense || 0) + txPayload.amount;
          await supabase.from('projects').update({ current_expense: newExpense }).eq('id', proj.id);
+         setProjects(prev => prev.map(p => p.id === proj.id ? { ...p, current_expense: newExpense } : p));
        }
      }
+     
+     if(data) {
+         setTransactions(prev => [data[0] as Transaction, ...prev]);
+     }
      toast.success('লেনদেন যুক্ত হয়েছে');
-     refreshData();
   };
 
   const payWorker = async (workerId: string, amount: number) => {
@@ -510,17 +561,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }]);
 
     if (txError) {
-        toast.error('পেমেন্ট রেকর্ড করা যায়নি: ' + txError.message);
+        toast.error('পেমেন্ট রেকর্ড করা যায়নি', txError.message);
         return;
     }
 
     const newBalance = worker.balance - amount;
     await supabase.from('profiles').update({ balance: newBalance }).eq('id', workerId);
+    setUsers(prev => prev.map(u => u.id === workerId ? { ...u, balance: newBalance } : u));
 
     await sendNotification(workerId, `আপনার ৳${amount} পেমেন্ট সম্পন্ন হয়েছে।`, 'payment');
     
     toast.success('পেমেন্ট সফল হয়েছে');
-    refreshData();
   };
 
   const getWorkerBalance = (workerId: string) => {
@@ -544,19 +595,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendNotification = async (userId: string, message: string, type: any, metadata: any = null) => {
      if (!checkOnline()) return;
      const dateStr = new Date().toISOString().split('T')[0];
-     await supabase.from('notifications').insert([{
+     const { data } = await supabase.from('notifications').insert([{
         user_id: userId,
         message,
         type,
         date: dateStr, 
         is_read: false,
         metadata
-     }]);
+     }]).select();
+     
+     if (data) {
+         // Optimistically update if sending to self (rare)
+         if (userId === user?.id) {
+             setNotifications(prev => [data[0] as Notification, ...prev]);
+         }
+     }
   };
 
   const markNotificationAsRead = async (id: string) => {
      await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-     // Update local state immediately for UI responsiveness
      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
@@ -566,11 +623,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addWorkReport = async (report: WorkReport) => {
       if (!checkOnline()) return;
-      const { error } = await supabase.from('work_reports').insert([report]);
+      const { data, error } = await supabase.from('work_reports').insert([report]).select();
       
       if (error) {
          toast.error('রিপোর্ট পাঠানো যায়নি');
          return;
+      }
+      
+      if(data) {
+          setWorkReports(prev => [data[0] as WorkReport, ...prev]);
       }
       
       const contractor = users.find(u => u.role === 'contractor');
@@ -583,17 +644,18 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             { projectId: report.project_id }
          );
       }
-      refreshData();
   };
 
   const addMaterialLog = async (log: MaterialLog) => {
       if (!checkOnline()) return;
-      const { error } = await supabase.from('material_logs').insert([log]);
+      const { data, error } = await supabase.from('material_logs').insert([log]).select();
       if (error) {
          toast.error('মালামাল এন্ট্রি হয়নি');
          return;
       }
-      refreshData();
+      if(data) {
+          setMaterialLogs(prev => [data[0] as MaterialLog, ...prev]);
+      }
   };
 
   const updateAppSettings = (settings: AppSettings) => {

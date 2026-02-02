@@ -34,9 +34,14 @@ export const Login = () => {
       let email = identifier.trim();
       // For worker/supervisor, we use phone number as email prefix
       if (role !== 'contractor') {
-         // Assume phone number is entered. Append fake domain.
+         // Check if identifier is phone (no @)
          if (!email.includes('@')) {
-            email = `${identifier.trim()}@projectkhata.local`;
+            // Strictly sanitize phone: Remove ALL non-digits
+            const cleanPhone = email.replace(/\D/g, '');
+            if (cleanPhone.length < 11) {
+               throw new Error("মোবাইল নাম্বার সঠিক নয় (কমপক্ষে ১১ ডিজিট)");
+            }
+            email = `${cleanPhone}@projectkhata.local`;
          }
       }
 
@@ -50,7 +55,7 @@ export const Login = () => {
           throw new Error("আপনার ইমেইল কনফার্ম করা হয়নি।");
         }
         if (error.message.includes("Invalid login credentials")) {
-          throw new Error("ভুল ইমেইল/ফোন বা পাসওয়ার্ড দিয়েছেন।");
+          throw new Error("ভুল মোবাইল নাম্বার বা পাসওয়ার্ড দিয়েছেন।");
         }
         throw error;
       }
@@ -59,7 +64,10 @@ export const Login = () => {
          // Check profile role
          const { data: profile, error: profileError } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
          
-         if (profileError) throw new Error("প্রোফাইল লোড করা যায়নি।");
+         if (profileError) {
+             console.error("Login Profile Fetch Error:", profileError);
+             throw new Error("প্রোফাইল লোড করা যায়নি।");
+         }
 
          if (profile && profile.role === role) {
              toast.success('লগইন সফল হয়েছে!');
@@ -213,7 +221,7 @@ export const Login = () => {
            {role !== 'contractor' && (
               <div className="mt-6 text-center pt-6 border-t border-slate-50">
                  <p className="text-xs text-slate-400 font-medium bg-slate-50 py-2 rounded-lg">
-                    আপনার একাউন্ট না থাকলে ঠিকাদারের সাথে যোগাযোগ করুন
+                    পাসওয়ার্ড: আপনার মোবাইল নাম্বারের শেষ ৬ ডিজিট
                  </p>
               </div>
            )}

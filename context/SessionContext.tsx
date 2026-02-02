@@ -31,6 +31,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
 
+        if (error) {
+            console.warn("Session check error:", error.message);
+            // Handle invalid refresh token or other session errors
+            if (mounted) {
+                setUserState(null);
+                localStorage.removeItem('pk_user_profile');
+                // Try to force sign out on supabase client to clean up local storage keys
+                await supabase.auth.signOut().catch(() => {});
+                setLoading(false);
+            }
+            return;
+        }
+
         if (session?.user) {
           // If we have a session but no local user state, or ID mismatch, fetch profile
           if (!user || user.id !== session.user.id) {
@@ -48,7 +61,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
-        if (mounted) setLoading(false);
+        if (mounted) {
+            setUserState(null);
+            localStorage.removeItem('pk_user_profile');
+            setLoading(false);
+        }
       }
     };
 
@@ -57,9 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session?.user) {
-           if (!user || user.id !== session.user.id) {
-              await fetchProfile(session.user.id);
-           }
+           await fetchProfile(session.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
         if (mounted) {

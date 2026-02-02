@@ -3,7 +3,7 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock } from 'lucide-react';
+import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon } from 'lucide-react';
 import { Transaction, WorkReport, MaterialLog } from '../types';
 
 export const SupervisorDashboard = () => {
@@ -11,6 +11,7 @@ export const SupervisorDashboard = () => {
   const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, addWorkReport, addMaterialLog, markAttendance, t } = useData();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const today = new Date().toISOString().split('T')[0];
   const stats = getDailyStats(today);
@@ -29,7 +30,6 @@ export const SupervisorDashboard = () => {
   const timeString = time.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
   const dateString = time.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const activeWorkers = users.filter(u => u.role === 'worker').length;
   const workers = users.filter(u => u.role === 'worker');
 
   // Modal States
@@ -44,15 +44,44 @@ export const SupervisorDashboard = () => {
 
   // Auto-select Assigned Project
   useEffect(() => {
-    if (user?.assigned_project_id && !selfEntryProject) {
-        setSelfEntryProject(user.assigned_project_id);
-    }
     if (user?.assigned_project_id) {
-        setTxForm(prev => ({ ...prev, projectId: prev.projectId || user.assigned_project_id || '' }));
-        setReportForm(prev => ({ ...prev, projectId: prev.projectId || user.assigned_project_id || '' }));
-        setMaterialForm(prev => ({ ...prev, projectId: prev.projectId || user.assigned_project_id || '' }));
+        const assignedId = user.assigned_project_id;
+        if (!selfEntryProject) setSelfEntryProject(assignedId);
+        
+        setTxForm(prev => ({ ...prev, projectId: prev.projectId || assignedId }));
+        setReportForm(prev => ({ ...prev, projectId: prev.projectId || assignedId }));
+        setMaterialForm(prev => ({ ...prev, projectId: prev.projectId || assignedId }));
     }
   }, [user, activeModal]);
+
+  // Image Handling
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'report' | 'material') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800; // Resize for storage efficiency
+          const scaleSize = MAX_WIDTH / img.width;
+          canvas.width = MAX_WIDTH;
+          canvas.height = img.height * scaleSize;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          
+          if (type === 'report') {
+             setReportForm(prev => ({ ...prev, image_url: dataUrl }));
+          } else {
+             setMaterialForm(prev => ({ ...prev, challan_photo: dataUrl }));
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Handlers
   const handleTxSubmit = (e: React.FormEvent) => {
@@ -70,16 +99,16 @@ export const SupervisorDashboard = () => {
     setTxForm({ amount: '', description: '', projectId: '' });
   };
 
-  const handlePaySubmit = (e: React.FormEvent) => {
+  const handlePaySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (payForm.workerId && payForm.amount) {
-      payWorker(payForm.workerId, Number(payForm.amount));
+      await payWorker(payForm.workerId, Number(payForm.amount));
       setActiveModal(null);
       setPayForm({ workerId: '', amount: '' });
     }
   };
 
-  const handleReportSubmit = (e: React.FormEvent) => {
+  const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (user && reportForm.projectId && reportForm.description) {
       const newReport: WorkReport = {
@@ -90,14 +119,14 @@ export const SupervisorDashboard = () => {
          description: reportForm.description,
          image_url: reportForm.image_url
       };
-      addWorkReport(newReport);
+      await addWorkReport(newReport);
       setActiveModal(null);
       setReportForm({ projectId: '', description: '', image_url: '' });
       toast.success('রিপোর্ট সফলভাবে জমা দেওয়া হয়েছে।');
     }
   };
 
-  const handleMaterialSubmit = (e: React.FormEvent) => {
+  const handleMaterialSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (user && materialForm.projectId && materialForm.item_name && materialForm.quantity) {
        const newLog: MaterialLog = {
@@ -111,17 +140,17 @@ export const SupervisorDashboard = () => {
           supplier_name: materialForm.supplier,
           challan_photo: materialForm.challan_photo
        };
-       addMaterialLog(newLog);
+       await addMaterialLog(newLog);
        setActiveModal(null);
        setMaterialForm({ projectId: '', item_name: '', quantity: '', unit: '', supplier: '', challan_photo: '' });
        toast.success('মালামাল এন্ট্রি সফল হয়েছে।');
     }
   };
 
-  const handleSelfEntrySubmit = (e: React.FormEvent) => {
+  const handleSelfEntrySubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (user && selfEntryProject) {
-          markAttendance(user.id, 'P', selfEntryProject, today);
+          await markAttendance(user.id, 'P', selfEntryProject, today);
           setActiveModal(null);
           toast.success('আপনার সাইট এন্ট্রি সম্পন্ন হয়েছে');
       }
@@ -132,7 +161,7 @@ export const SupervisorDashboard = () => {
   // Recent Expenses (Last 5)
   const recentExpenses = transactions
     .filter(t => t.type === 'expense' || t.type === 'salary')
-    .sort((a, b) => Number(b.id) - Number(a.id)) // approximation for sort by latest
+    .sort((a, b) => Number(b.id) - Number(a.id))
     .slice(0, 5);
 
   return (
@@ -333,8 +362,9 @@ export const SupervisorDashboard = () => {
          </span>
       </button>
 
-      {/* --- MODALS (Code reused from previous, ensured style consistency) --- */}
-      {/* Self Entry, Expense, Payment, Material, Report Modals... */}
+      {/* --- MODALS --- */}
+
+      {/* Self Entry Modal */}
       {activeModal === 'selfEntry' && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveModal(null)}></div>
@@ -377,7 +407,7 @@ export const SupervisorDashboard = () => {
           </div>
       )}
 
-      {/* Expense Modal (Simplified for brevity but consistent with ContractorDashboard modal style) */}
+      {/* Expense Modal */}
       {activeModal === 'expense' && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveModal(null)}></div>
@@ -448,8 +478,265 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
-      {/* Other modals logic remains similar, ensuring consistent rounded-[2.5rem] and styling */}
-      {/* ... Payment, Material, Report Modals ... */}
+      {/* Payment Modal */}
+      {activeModal === 'payment' && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveModal(null)}></div>
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm relative z-10 p-8 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
+              <div className="flex justify-between items-center mb-8">
+                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <div className="bg-emerald-100 p-2 rounded-full"><Wallet className="text-emerald-600" size={20}/></div>
+                    {t('payment_title')}
+                 </h3>
+                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+              </div>
+
+              <form onSubmit={handlePaySubmit} className="space-y-4">
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('select_worker')}</label>
+                    <div className="relative">
+                       <select 
+                          value={payForm.workerId}
+                          onChange={(e) => setPayForm({...payForm, workerId: e.target.value})}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-emerald-500 text-sm appearance-none text-slate-900 dark:text-white font-medium"
+                          required
+                       >
+                          <option value="">{t('click_list')}</option>
+                          {workers.map(w => (
+                             <option key={w.id} value={w.id}>{w.full_name}</option>
+                          ))}
+                       </select>
+                       <Users size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                    {payForm.workerId && (
+                       <div className="mt-2 flex justify-between px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs border border-slate-100 dark:border-slate-700">
+                          <span className="text-slate-500">বর্তমান বকেয়া</span>
+                          <span className={`font-bold ${selectedWorkerBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {selectedWorkerBalance}</span>
+                       </div>
+                    )}
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('amount')}</label>
+                    <div className="relative group">
+                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl group-focus-within:text-emerald-500 transition-colors">৳</span>
+                       <input 
+                         type="number" 
+                         required
+                         value={payForm.amount}
+                         onChange={(e) => setPayForm({...payForm, amount: e.target.value})}
+                         placeholder="0"
+                         className="w-full pl-10 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-emerald-500 text-2xl font-bold text-slate-900 dark:text-white placeholder-slate-300"
+                       />
+                    </div>
+                 </div>
+
+                 <button 
+                   type="submit" 
+                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                    <CheckCircle size={20} />
+                    {t('confirm_payment')}
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* Material Log Modal */}
+      {activeModal === 'material' && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveModal(null)}></div>
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm relative z-10 p-8 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <div className="bg-orange-100 p-2 rounded-full"><PackageCheck className="text-orange-600" size={20}/></div>
+                    {t('material_entry_title')}
+                 </h3>
+                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+              </div>
+
+              <form onSubmit={handleMaterialSubmit} className="space-y-4">
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">প্রজেক্ট</label>
+                    <select 
+                        value={materialForm.projectId}
+                        onChange={(e) => setMaterialForm({...materialForm, projectId: e.target.value})}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-orange-500 text-sm font-medium"
+                        required
+                    >
+                        <option value="">প্রজেক্ট সিলেক্ট করুন</option>
+                        {projects.filter(p => p.status === 'active').map(p => (
+                            <option key={p.id} value={p.id}>{p.project_name}</option>
+                        ))}
+                    </select>
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('item_name')}</label>
+                    <input 
+                      type="text" 
+                      required
+                      value={materialForm.item_name}
+                      onChange={(e) => setMaterialForm({...materialForm, item_name: e.target.value})}
+                      placeholder="যেমন: সিমেন্ট"
+                      className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-orange-500 text-sm font-bold"
+                    />
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('quantity')}</label>
+                        <input 
+                          type="number" 
+                          required
+                          value={materialForm.quantity}
+                          onChange={(e) => setMaterialForm({...materialForm, quantity: e.target.value})}
+                          placeholder="0"
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-orange-500 text-sm font-bold"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('unit')}</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={materialForm.unit}
+                          onChange={(e) => setMaterialForm({...materialForm, unit: e.target.value})}
+                          placeholder="ব্যাগ/ট্রাক"
+                          className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-orange-500 text-sm font-bold"
+                        />
+                    </div>
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('supplier')}</label>
+                    <div className="relative">
+                        <input 
+                          type="text" 
+                          value={materialForm.supplier}
+                          onChange={(e) => setMaterialForm({...materialForm, supplier: e.target.value})}
+                          placeholder="দোকানের নাম"
+                          className="w-full pl-9 p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-orange-500 text-sm font-medium"
+                        />
+                        <Truck size={16} className="absolute left-3 top-3.5 text-slate-400" />
+                    </div>
+                 </div>
+
+                 {/* Image Upload */}
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('challan_photo')}</label>
+                    <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-32 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-orange-400 transition-colors relative overflow-hidden"
+                    >
+                        {materialForm.challan_photo ? (
+                            <img src={materialForm.challan_photo} alt="Challan" className="w-full h-full object-cover" />
+                        ) : (
+                            <>
+                                <Camera size={24} className="text-slate-400 mb-2" />
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">ছবি তুলুন</p>
+                            </>
+                        )}
+                        <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={(e) => handleImageUpload(e, 'material')}
+                        />
+                    </div>
+                 </div>
+
+                 <button 
+                   type="submit" 
+                   className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-bold shadow-lg shadow-orange-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                    <CheckCircle size={20} />
+                    {t('submit_entry')}
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* Work Report Modal */}
+      {activeModal === 'report' && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveModal(null)}></div>
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm relative z-10 p-8 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                    <div className="bg-blue-100 p-2 rounded-full"><FileText className="text-blue-600" size={20}/></div>
+                    {t('submit_report')}
+                 </h3>
+                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+              </div>
+
+              <form onSubmit={handleReportSubmit} className="space-y-4">
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">প্রজেক্ট</label>
+                    <select 
+                        value={reportForm.projectId}
+                        onChange={(e) => setReportForm({...reportForm, projectId: e.target.value})}
+                        className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-medium"
+                        required
+                    >
+                        <option value="">প্রজেক্ট সিলেক্ট করুন</option>
+                        {projects.filter(p => p.status === 'active').map(p => (
+                            <option key={p.id} value={p.id}>{p.project_name}</option>
+                        ))}
+                    </select>
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">বিবরণ</label>
+                    <textarea 
+                      required
+                      value={reportForm.description}
+                      onChange={(e) => setReportForm({...reportForm, description: e.target.value})}
+                      placeholder={t('report_desc')}
+                      className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-medium h-24 resize-none leading-relaxed"
+                    />
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{t('upload_photo')}</label>
+                    <div 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full h-40 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 transition-colors relative overflow-hidden"
+                    >
+                        {reportForm.image_url ? (
+                            <img src={reportForm.image_url} alt="Work" className="w-full h-full object-cover" />
+                        ) : (
+                            <>
+                                <ImageIcon size={28} className="text-slate-400 mb-2" />
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">কাজের ছবি দিন</p>
+                            </>
+                        )}
+                        <input 
+                            type="file" 
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={(e) => handleImageUpload(e, 'report')}
+                        />
+                    </div>
+                 </div>
+
+                 <button 
+                   type="submit" 
+                   className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                    <Send size={18} />
+                    {t('submit_report')}
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
 
     </div>
   );

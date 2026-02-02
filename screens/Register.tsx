@@ -40,6 +40,9 @@ export const Register = () => {
         throw new Error('সঠিক ইমেইল এড্রেস দিন।');
       }
 
+      // Sanitize phone number
+      const cleanPhone = formData.phone.replace(/[\s-]/g, '');
+
       // 1. Sign Up
       const { data, error } = await supabase.auth.signUp({
         email: formData.email.trim(),
@@ -48,7 +51,7 @@ export const Register = () => {
           data: {
             full_name: formData.full_name.trim(),
             company_name: formData.company_name.trim(),
-            phone: formData.phone.trim(),
+            phone: cleanPhone,
             role: 'contractor'
           }
         }
@@ -62,7 +65,7 @@ export const Register = () => {
              id: data.user.id,
              full_name: formData.full_name.trim(),
              company_name: formData.company_name.trim(),
-             phone: formData.phone.trim(),
+             phone: cleanPhone,
              role: 'contractor',
              email: formData.email.trim(),
              is_verified: true,

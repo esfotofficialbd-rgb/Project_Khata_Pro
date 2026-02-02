@@ -13,7 +13,7 @@ export const WorkersList = () => {
   const [activeTab, setActiveTab] = useState<'worker' | 'supervisor'>('worker');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  
   // If user is supervisor, they can only manage workers
   const isSupervisor = user?.role === 'supervisor';
 
@@ -48,20 +48,25 @@ export const WorkersList = () => {
   };
 
   const getPasswordPreview = () => {
-    if (formData.phone.length >= 6) {
-      return formData.phone.slice(-6);
+    // Show preview based on strictly sanitized phone
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (cleanPhone.length >= 6) {
+      return cleanPhone.slice(-6);
     }
     return "......";
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Sanitize phone number (remove non-digits)
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+
     const newUser: Profile = {
-      id: Date.now().toString(),
+      id: Date.now().toString(), // Temp ID, will be replaced by Auth ID
       role: formRole,
       full_name: formData.full_name,
-      phone: formData.phone,
+      phone: cleanPhone,
       is_verified: true,
       balance: 0,
       avatar_url: `https://ui-avatars.com/api/?name=${formData.full_name}&background=random`
@@ -82,17 +87,21 @@ export const WorkersList = () => {
       }
     }
 
-    addUser(newUser);
+    const result: any = await addUser(newUser);
     
-    setIsModalOpen(false);
-    setFormData({
-      full_name: '',
-      phone: '',
-      skill_type: 'রাজমিস্ত্রি',
-      rate: '',
-      payment_type: 'daily',
-      project_id: ''
-    });
+    if (result && result.success) {
+        // DataContext already triggers the Toast with credentials.
+        // We just need to close the modal and reset the form.
+        setIsModalOpen(false);
+        setFormData({
+          full_name: '',
+          phone: '',
+          skill_type: 'রাজমিস্ত্রি',
+          rate: '',
+          payment_type: 'daily',
+          project_id: ''
+        });
+    }
   };
 
   return (
