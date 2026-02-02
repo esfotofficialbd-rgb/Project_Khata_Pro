@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
-import { ArrowDownLeft, ArrowUpRight, Calendar, Filter } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Calendar, Filter, Wallet } from 'lucide-react';
 
 export const Accounts = () => {
   const { transactions, projects, appSettings } = useData();
@@ -65,47 +65,52 @@ export const Accounts = () => {
   const globalBalance = globalIncome - globalExpense;
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 relative">
-      <div className="bg-white p-4 sticky top-0 z-10 shadow-sm mb-4">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 relative font-sans">
+      <div className="bg-white dark:bg-slate-900 p-4 sticky top-0 z-10 shadow-sm mb-4 border-b border-slate-100 dark:border-slate-800">
          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-xl font-bold text-gray-800">হিসাব খাতা</h1>
+            <h1 className="text-xl font-bold text-slate-800 dark:text-white">হিসাব খাতা</h1>
             {/* Time Filter Toggle */}
-            <div className="flex bg-gray-100 p-1 rounded-lg">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
                <button 
                  onClick={() => setTimeFilter('current_cycle')}
-                 className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${timeFilter === 'current_cycle' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                 className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${timeFilter === 'current_cycle' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
                >
                  চলতি {appSettings.calcMode === 'weekly' ? 'সপ্তাহ' : 'মাস'}
                </button>
                <button 
                  onClick={() => setTimeFilter('all_time')}
-                 className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${timeFilter === 'all_time' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                 className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${timeFilter === 'all_time' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
                >
                  সব সময়
                </button>
             </div>
          </div>
          
-         <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-5 text-white shadow-lg transition-all duration-300">
-            <p className="text-gray-400 text-xs mb-1">
-               {timeFilter === 'current_cycle' ? 'বর্তমান সাইকেল স্থিতি' : 'সর্বমোট অবশিষ্ট স্থিতি'}
-            </p>
-            <h2 className="text-3xl font-bold mb-4">
-               ৳ {timeFilter === 'current_cycle' ? balance.toLocaleString() : globalBalance.toLocaleString()}
-            </h2>
+         <div className="bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-900 rounded-[1.8rem] p-6 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden group">
+            {/* Overlay Texture */}
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
             
-            <div className="flex gap-4 border-t border-gray-700 pt-3">
-               <div className="flex-1">
-                  <p className="text-gray-400 text-[10px] flex items-center gap-1">
-                     <ArrowDownLeft size={12} className="text-green-500"/> মোট আয়
-                  </p>
-                  <p className="font-bold text-green-400">৳ {totalIncome.toLocaleString()}</p>
-               </div>
-               <div className="flex-1 border-l border-gray-700 pl-4">
-                  <p className="text-gray-400 text-[10px] flex items-center gap-1">
-                     <ArrowUpRight size={12} className="text-red-500"/> মোট ব্যয়
-                  </p>
-                  <p className="font-bold text-red-400">৳ {totalExpense.toLocaleString()}</p>
+            <div className="relative z-10">
+               <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">
+                  {timeFilter === 'current_cycle' ? 'বর্তমান সাইকেল স্থিতি' : 'সর্বমোট অবশিষ্ট স্থিতি'}
+               </p>
+               <h2 className="text-4xl font-extrabold mb-5 tracking-tight">
+                  ৳ {timeFilter === 'current_cycle' ? balance.toLocaleString() : globalBalance.toLocaleString()}
+               </h2>
+               
+               <div className="flex gap-4 border-t border-blue-500/30 pt-4">
+                  <div className="flex-1">
+                     <p className="text-blue-200 text-[10px] font-bold flex items-center gap-1 uppercase mb-0.5">
+                        <ArrowDownLeft size={12} className="text-emerald-400"/> মোট আয়
+                     </p>
+                     <p className="font-bold text-emerald-300 text-lg">৳ {totalIncome.toLocaleString()}</p>
+                  </div>
+                  <div className="flex-1 border-l border-blue-500/30 pl-4">
+                     <p className="text-blue-200 text-[10px] font-bold flex items-center gap-1 uppercase mb-0.5">
+                        <ArrowUpRight size={12} className="text-rose-400"/> মোট ব্যয়
+                     </p>
+                     <p className="font-bold text-rose-300 text-lg">৳ {totalExpense.toLocaleString()}</p>
+                  </div>
                </div>
             </div>
          </div>
@@ -113,39 +118,42 @@ export const Accounts = () => {
 
       <div className="px-4">
         {/* Tabs */}
-        <div className="flex bg-gray-200 p-1 rounded-xl mb-4">
-          <button onClick={() => setActiveTab('all')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'all' ? 'bg-white shadow text-gray-800' : 'text-gray-500'}`}>সব</button>
-          <button onClick={() => setActiveTab('income')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'income' ? 'bg-white shadow text-green-600' : 'text-gray-500'}`}>আয়</button>
-          <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'expense' ? 'bg-white shadow text-red-600' : 'text-gray-500'}`}>ব্যয়</button>
+        <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-2xl mb-4">
+          <button onClick={() => setActiveTab('all')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>সব</button>
+          <button onClick={() => setActiveTab('income')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'income' ? 'bg-white dark:bg-slate-700 shadow text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>আয়</button>
+          <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'expense' ? 'bg-white dark:bg-slate-700 shadow text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>ব্যয়</button>
         </div>
 
         {/* List */}
         <div className="space-y-3">
            {filteredTransactions.length === 0 ? (
-              <div className="text-center py-10 text-gray-400">
-                 <p className="text-sm">কোন লেনদেন নেই</p>
-                 {timeFilter === 'current_cycle' && <p className="text-xs mt-1">(চলতি সাইকেলে)</p>}
+              <div className="text-center py-12 text-slate-400 flex flex-col items-center">
+                 <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-full mb-2">
+                    <Wallet size={24} className="opacity-50"/>
+                 </div>
+                 <p className="text-sm font-bold">কোন লেনদেন নেই</p>
+                 {timeFilter === 'current_cycle' && <p className="text-[10px] mt-1 opacity-70">(চলতি সাইকেলে)</p>}
               </div>
            ) : (
               filteredTransactions.map(tx => (
-                 <div key={tx.id} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center justify-between">
+                 <div key={tx.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-3">
-                       <div className={`p-2 rounded-full ${tx.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                          {tx.type === 'income' ? <ArrowDownLeft size={20}/> : <ArrowUpRight size={20}/>}
+                       <div className={`p-3 rounded-2xl ${tx.type === 'income' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400'}`}>
+                          {tx.type === 'income' ? <ArrowDownLeft size={20} strokeWidth={2.5}/> : <ArrowUpRight size={20} strokeWidth={2.5}/>}
                        </div>
                        <div>
-                          <p className="font-bold text-gray-800 text-sm">{tx.description}</p>
-                          <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                          <p className="font-bold text-slate-800 dark:text-white text-sm line-clamp-1">{tx.description}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
                              <Calendar size={10}/> {tx.date}
                              {tx.project_id && (
-                                <span className="bg-gray-100 px-1 rounded text-[9px] truncate max-w-[100px]">
+                                <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[9px] truncate max-w-[100px] border border-slate-200 dark:border-slate-700">
                                    {projects.find(p => p.id === tx.project_id)?.project_name}
                                 </span>
                              )}
                           </p>
                        </div>
                     </div>
-                    <span className={`font-bold ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`font-bold text-sm ${tx.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                        {tx.type === 'income' ? '+' : '-'} ৳{tx.amount.toLocaleString()}
                     </span>
                  </div>

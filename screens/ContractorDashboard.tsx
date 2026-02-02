@@ -1,14 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap } from 'lucide-react';
+import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
 import { Transaction } from '../types';
 import { useAuth } from '../context/SessionContext';
 
 export const ContractorDashboard = () => {
   const { user } = useAuth();
-  const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, t, isLoadingData } = useData();
+  const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, workReports, materialLogs, t, isLoadingData } = useData();
   const navigate = useNavigate();
   
   const today = new Date().toISOString().split('T')[0];
@@ -88,6 +88,50 @@ export const ContractorDashboard = () => {
 
   const currentItem = feedItems[currentFeedIndex] || feedItems[0];
 
+  // --- RECENT ACTIVITY LOGIC ---
+  const recentActivities = useMemo(() => {
+      const acts: any[] = [];
+      
+      // Transactions
+      transactions.slice(0, 5).forEach(t => acts.push({
+          id: t.id,
+          type: 'money',
+          icon: t.type === 'income' ? ArrowDownLeft : ArrowUpRight,
+          title: t.type === 'income' ? 'টাকা জমা' : t.type === 'salary' ? 'বেতন প্রদান' : 'খরচ',
+          desc: t.description,
+          amount: t.amount,
+          date: t.date,
+          color: t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
+          bg: t.type === 'income' ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20'
+      }));
+
+      // Work Reports
+      workReports.slice(0, 3).forEach(r => acts.push({
+          id: r.id,
+          type: 'report',
+          icon: FileText,
+          title: 'কাজের রিপোর্ট',
+          desc: projects.find(p=>p.id===r.project_id)?.project_name || 'Project',
+          date: r.date,
+          color: 'text-indigo-600',
+          bg: 'bg-indigo-50 dark:bg-indigo-900/20'
+      }));
+
+      // Material Logs
+      materialLogs.slice(0, 3).forEach(m => acts.push({
+          id: m.id,
+          type: 'material',
+          icon: Package,
+          title: 'ম্যাটেরিয়াল',
+          desc: `${m.quantity} ${m.unit} ${m.item_name}`,
+          date: m.date,
+          color: 'text-orange-600',
+          bg: 'bg-orange-50 dark:bg-orange-900/20'
+      }));
+
+      return acts.sort((a,b) => b.id.localeCompare(a.id)).slice(0, 5);
+  }, [transactions, workReports, materialLogs, projects]);
+
   // Modals & Forms
   const [activeModal, setActiveModal] = useState<'income' | 'expense' | 'payment' | null>(null);
   const [txForm, setTxForm] = useState({ amount: '', description: '', projectId: '' });
@@ -155,14 +199,42 @@ export const ContractorDashboard = () => {
   // Consistent input styling
   const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 transition-all shadow-sm";
 
-  if (isLoadingData) {
-     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center space-y-4">
-           <Loader2 className="animate-spin text-blue-600" size={32} />
-           <p className="text-sm text-slate-500 font-bold animate-pulse">ডাটা লোড হচ্ছে...</p>
-        </div>
-     );
-  }
+  // --- SKELETON LOADER COMPONENT ---
+  const DashboardSkeleton = () => (
+    <div className="space-y-4 animate-pulse">
+       {/* Main Card Skeleton */}
+       <div className="h-64 rounded-[2.2rem] bg-slate-200 dark:bg-slate-800 w-full mb-4"></div>
+       
+       {/* Quick Actions Grid Skeleton */}
+       <div>
+          <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-full mb-3"></div>
+          <div className="grid grid-cols-4 gap-3">
+             {[...Array(8)].map((_, i) => (
+                <div key={i} className="aspect-square rounded-2xl bg-slate-200 dark:bg-slate-800"></div>
+             ))}
+          </div>
+       </div>
+
+       {/* Chart Skeleton */}
+       <div className="h-48 rounded-[1.5rem] bg-slate-200 dark:bg-slate-800 w-full"></div>
+
+       {/* Recent List Skeleton */}
+       <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
+          <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-full mb-4"></div>
+          <div className="space-y-3">
+             {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0"></div>
+                   <div className="flex-1 space-y-2">
+                      <div className="h-3 w-3/4 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                      <div className="h-2 w-1/2 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
+                   </div>
+                </div>
+             ))}
+          </div>
+       </div>
+    </div>
+  );
 
   return (
     <div className="pb-28 relative bg-slate-50 dark:bg-slate-900 min-h-screen font-sans selection:bg-blue-100">
@@ -181,9 +253,11 @@ export const ContractorDashboard = () => {
                   ঠিকাদার
                </h1>
             </div>
-            <div className="text-right bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{dateString}</p>
-                <p className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono leading-none mt-0.5">{timeString}</p>
+            <div className="flex flex-col items-end gap-1">
+               <div className="text-right bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                   <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{dateString}</p>
+                   <p className="text-sm font-bold text-blue-700 dark:text-blue-400 font-mono leading-none mt-0.5">{timeString}</p>
+               </div>
             </div>
          </div>
 
@@ -230,166 +304,206 @@ export const ContractorDashboard = () => {
 
       <div className="px-4 space-y-4">
          
-         {/* MAIN FINANCIAL & STATUS CARD (Merged) - Premium Theme (NO BLACK) */}
-         <div className="relative rounded-[2.2rem] overflow-hidden shadow-xl shadow-blue-900/20 dark:shadow-none mb-3 group transition-all">
-            {/* Premium Royal Blue Gradient Background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-800"></div>
-            
-            {/* Texture Overlay */}
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
-            
-            <div className="relative p-6 text-white">
-                
-                {/* Top Section: Money */}
-                <div className="flex justify-between items-start mb-6">
-                   <div>
-                      <div className="flex items-center gap-1.5 mb-1 opacity-90">
-                         <div className="bg-amber-400/20 p-1 rounded backdrop-blur-sm border border-amber-400/20">
-                            <Wallet size={12} className="text-amber-300" />
-                         </div>
-                         <p className="text-blue-100 text-[10px] font-bold uppercase tracking-[0.15em]">{t('total_due')}</p>
-                      </div>
-                      <h2 className="text-4xl font-extrabold tracking-tight text-white flex items-baseline gap-1 drop-shadow-sm">
-                         <span className="text-2xl text-blue-200 font-bold">৳</span> 
-                         {stats.totalDue.toLocaleString()}
-                      </h2>
-                   </div>
-                   <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 rounded-xl shadow-inner">
-                      <Activity size={24} className="text-blue-200" />
-                   </div>
+         {isLoadingData ? (
+            <DashboardSkeleton />
+         ) : (
+            <>
+                {/* MAIN FINANCIAL & STATUS CARD (Merged) - Premium Theme (NO BLACK) */}
+                <div className="relative rounded-[2.2rem] overflow-hidden shadow-xl shadow-blue-900/20 dark:shadow-none mb-3 group transition-all">
+                    {/* Premium Royal Blue Gradient Background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-800"></div>
+                    
+                    {/* Texture Overlay */}
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+                    
+                    <div className="relative p-6 text-white">
+                        
+                        {/* Top Section: Money */}
+                        <div className="flex justify-between items-start mb-6">
+                        <div>
+                            <div className="flex items-center gap-1.5 mb-1 opacity-90">
+                                <div className="bg-amber-400/20 p-1 rounded backdrop-blur-sm border border-amber-400/20">
+                                    <Wallet size={12} className="text-amber-300" />
+                                </div>
+                                <p className="text-blue-100 text-[10px] font-bold uppercase tracking-[0.15em]">{t('total_due')}</p>
+                            </div>
+                            <h2 className="text-4xl font-extrabold tracking-tight text-white flex items-baseline gap-1 drop-shadow-sm">
+                                <span className="text-2xl text-blue-200 font-bold">৳</span> 
+                                {stats.totalDue.toLocaleString()}
+                            </h2>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md border border-white/10 p-2.5 rounded-xl shadow-inner">
+                            <Activity size={24} className="text-blue-200" />
+                        </div>
+                        </div>
+
+                        {/* Bottom Section: Grid Stats (Merged from removed cards) */}
+                        <div className="grid grid-cols-2 gap-3">
+                        
+                        {/* Projects Stat */}
+                        <button onClick={() => navigate('/projects')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-blue-400/20 p-2 rounded-lg text-blue-200">
+                                    <Briefcase size={16} />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-lg font-bold text-white leading-none">{activeProjects}</p>
+                                    <p className="text-[9px] font-bold text-blue-200 uppercase mt-0.5">প্রজেক্ট</p>
+                                </div>
+                            </div>
+                            <ChevronRight size={14} className="text-blue-300 group-hover/item:text-white transition-colors" />
+                        </button>
+
+                        {/* Workers Stat */}
+                        <button onClick={() => navigate('/workers')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-emerald-400/20 p-2 rounded-lg text-emerald-200">
+                                    <Users size={16} />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-lg font-bold text-white leading-none">{activeWorkers}</p>
+                                    <p className="text-[9px] font-bold text-emerald-200 uppercase mt-0.5">কর্মী</p>
+                                </div>
+                            </div>
+                            <ChevronRight size={14} className="text-emerald-300 group-hover/item:text-white transition-colors" />
+                        </button>
+
+                        {/* Expense Stat */}
+                        <div className="col-span-2 bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between mt-1">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-rose-400/20 p-2 rounded-lg text-rose-200">
+                                    <TrendingUp size={16} />
+                                </div>
+                                <div className="text-left">
+                                    <p className="text-[10px] font-bold text-rose-200 uppercase">আজকের খরচ</p>
+                                    <p className="text-sm font-bold text-white">৳ {stats.totalExpense.toLocaleString()}</p>
+                                </div>
+                            </div>
+                            <span className="text-[9px] bg-rose-500/20 text-rose-100 px-2 py-1 rounded font-bold border border-rose-400/20">Today</span>
+                        </div>
+
+                        </div>
+                    </div>
                 </div>
 
-                {/* Bottom Section: Grid Stats (Merged from removed cards) */}
-                <div className="grid grid-cols-2 gap-3">
-                   
-                   {/* Projects Stat */}
-                   <button onClick={() => navigate('/projects')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
-                      <div className="flex items-center gap-3">
-                         <div className="bg-blue-400/20 p-2 rounded-lg text-blue-200">
-                            <Briefcase size={16} />
-                         </div>
-                         <div className="text-left">
-                            <p className="text-lg font-bold text-white leading-none">{activeProjects}</p>
-                            <p className="text-[9px] font-bold text-blue-200 uppercase mt-0.5">প্রজেক্ট</p>
-                         </div>
-                      </div>
-                      <ChevronRight size={14} className="text-blue-300 group-hover/item:text-white transition-colors" />
-                   </button>
-
-                   {/* Workers Stat */}
-                   <button onClick={() => navigate('/workers')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
-                      <div className="flex items-center gap-3">
-                         <div className="bg-emerald-400/20 p-2 rounded-lg text-emerald-200">
-                            <Users size={16} />
-                         </div>
-                         <div className="text-left">
-                            <p className="text-lg font-bold text-white leading-none">{activeWorkers}</p>
-                            <p className="text-[9px] font-bold text-emerald-200 uppercase mt-0.5">কর্মী</p>
-                         </div>
-                      </div>
-                      <ChevronRight size={14} className="text-emerald-300 group-hover/item:text-white transition-colors" />
-                   </button>
-
-                   {/* Expense Stat */}
-                   <div className="col-span-2 bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between mt-1">
-                      <div className="flex items-center gap-3">
-                         <div className="bg-rose-400/20 p-2 rounded-lg text-rose-200">
-                            <TrendingUp size={16} />
-                         </div>
-                         <div className="text-left">
-                            <p className="text-[10px] font-bold text-rose-200 uppercase">আজকের খরচ</p>
-                            <p className="text-sm font-bold text-white">৳ {stats.totalExpense.toLocaleString()}</p>
-                         </div>
-                      </div>
-                      <span className="text-[9px] bg-rose-500/20 text-rose-100 px-2 py-1 rounded font-bold border border-rose-400/20">Today</span>
-                   </div>
-
+                {/* Quick Actions Grid - Clean Tile Design */}
+                <div>
+                    <h3 className="text-slate-700 dark:text-white font-bold text-xs mb-3 flex items-center gap-2 uppercase tracking-wider">
+                    <span className="w-1 h-3 bg-blue-600 rounded-full"></span>
+                    {t('quick_actions')}
+                    </h3>
+                    
+                    <div className="grid grid-cols-4 gap-3">
+                    {[
+                        { icon: PlusCircle, label: t('add_worker'), color: 'text-blue-600', action: () => navigate('/workers', { state: { openAddModal: true } }) },
+                        { icon: Briefcase, label: t('add_project'), color: 'text-purple-600', action: () => navigate('/projects', { state: { openAddModal: true } }) },
+                        { icon: Wallet, label: t('labor_payment'), color: 'text-emerald-600', action: () => setActiveModal('payment') },
+                        { icon: DollarSign, label: t('expense'), color: 'text-rose-600', action: () => setActiveModal('expense') },
+                        
+                        { icon: CreditCard, label: t('deposit'), color: 'text-cyan-600', action: () => setActiveModal('income') },
+                        { icon: Hammer, label: t('tools'), color: 'text-orange-600', action: () => navigate('/tools') },
+                        { icon: FileText, label: t('report'), color: 'text-indigo-600', action: () => navigate('/reports') },
+                        { icon: MapPin, label: 'Live Map', color: 'text-red-600', action: () => navigate('/tracking') },
+                    ].map((item, idx) => (
+                        <button 
+                        key={idx} 
+                        onClick={item.action} 
+                        className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform"
+                        >
+                        <div className="bg-white dark:bg-slate-800 w-full aspect-square rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm group-hover:border-blue-300 dark:group-hover:border-blue-600 group-hover:shadow-md transition-all relative overflow-hidden">
+                            {/* Hover Glow */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-slate-50 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <item.icon size={22} className={`${item.color} relative z-10`} strokeWidth={2} />
+                        </div>
+                        <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight truncate w-full">{item.label}</span>
+                        </button>
+                    ))}
+                    </div>
                 </div>
-            </div>
-         </div>
 
-         {/* Quick Actions Grid - Clean Tile Design */}
-         <div>
-            <h3 className="text-slate-700 dark:text-white font-bold text-xs mb-3 flex items-center gap-2 uppercase tracking-wider">
-               <span className="w-1 h-3 bg-blue-600 rounded-full"></span>
-               {t('quick_actions')}
-            </h3>
-            
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                 { icon: PlusCircle, label: t('add_worker'), color: 'text-blue-600', action: () => navigate('/workers', { state: { openAddModal: true } }) },
-                 { icon: Briefcase, label: t('add_project'), color: 'text-purple-600', action: () => navigate('/projects', { state: { openAddModal: true } }) },
-                 { icon: Wallet, label: t('labor_payment'), color: 'text-emerald-600', action: () => setActiveModal('payment') },
-                 { icon: DollarSign, label: t('expense'), color: 'text-rose-600', action: () => setActiveModal('expense') },
-                 
-                 { icon: CreditCard, label: t('deposit'), color: 'text-cyan-600', action: () => setActiveModal('income') },
-                 { icon: Hammer, label: t('tools'), color: 'text-orange-600', action: () => navigate('/tools') },
-                 { icon: FileText, label: t('report'), color: 'text-indigo-600', action: () => navigate('/reports') },
-                 { icon: MoreHorizontal, label: 'অন্যান্য', color: 'text-slate-600', action: () => navigate('/settings') },
-              ].map((item, idx) => (
-                <button 
-                  key={idx} 
-                  onClick={item.action} 
-                  className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform"
-                >
-                  <div className="bg-white dark:bg-slate-800 w-full aspect-square rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm group-hover:border-blue-300 dark:group-hover:border-blue-600 group-hover:shadow-md transition-all relative overflow-hidden">
-                    {/* Hover Glow */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-slate-50 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <item.icon size={22} className={`${item.color} relative z-10`} strokeWidth={2} />
-                  </div>
-                  <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight truncate w-full">{item.label}</span>
-                </button>
-              ))}
-            </div>
-         </div>
+                {/* Analytics Section - Card Style */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between items-center mb-4">
+                    <div>
+                        <h3 className="text-slate-800 dark:text-white font-bold text-xs flex items-center gap-2 uppercase tracking-wide">
+                            <PieChart size={14} className="text-blue-500" />
+                            {t('last_7_days')}
+                        </h3>
+                        <p className="text-[9px] text-slate-400 font-medium ml-6">আয় ও ব্যয়ের তুলনা</p>
+                    </div>
+                    <button onClick={() => navigate('/reports')} className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-400 hover:text-blue-600 transition-colors border border-slate-100 dark:border-slate-700">
+                        <ArrowRight size={14} />
+                    </button>
+                    </div>
+                    
+                    <div style={{ width: '100%', height: 160 }}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                        <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                                </linearGradient>
+                                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.3} />
+                            <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} dy={10} />
+                            <YAxis tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} />
+                            <Tooltip 
+                                contentStyle={{ 
+                                borderRadius: '12px', 
+                                border: 'none', 
+                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                                }}
+                            />
+                            <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" />
+                            <Area type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                    </div>
+                </div>
 
-         {/* Analytics Section - Card Style */}
-         <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-            <div className="flex justify-between items-center mb-4">
-               <div>
-                  <h3 className="text-slate-800 dark:text-white font-bold text-xs flex items-center gap-2 uppercase tracking-wide">
-                     <PieChart size={14} className="text-blue-500" />
-                     {t('last_7_days')}
-                  </h3>
-                  <p className="text-[9px] text-slate-400 font-medium ml-6">আয় ও ব্যয়ের তুলনা</p>
-               </div>
-               <button onClick={() => navigate('/reports')} className="p-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-slate-400 hover:text-blue-600 transition-colors border border-slate-100 dark:border-slate-700">
-                  <ArrowRight size={14} />
-               </button>
-            </div>
-            
-            <div style={{ width: '100%', height: 160 }}>
-               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                     <defs>
-                        <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                           <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
-                           <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                           <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                           <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                        </linearGradient>
-                     </defs>
-                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.3} />
-                     <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} dy={10} />
-                     <YAxis tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} />
-                     <Tooltip 
-                        contentStyle={{ 
-                           borderRadius: '12px', 
-                           border: 'none', 
-                           boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                           fontSize: '12px',
-                           fontWeight: 'bold'
-                        }}
-                     />
-                     <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" />
-                     <Area type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" />
-                  </AreaChart>
-               </ResponsiveContainer>
-            </div>
-         </div>
+                {/* RECENT ACTIVITY LIST - NEW SECTION */}
+                <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
+                    <h3 className="text-slate-800 dark:text-white font-bold text-xs mb-3 flex items-center gap-2 uppercase tracking-wide">
+                    <Clock size={14} className="text-purple-500" />
+                    সাম্প্রতিক কার্যক্রম
+                    </h3>
+                    
+                    <div className="space-y-3">
+                    {recentActivities.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 text-xs font-medium">কোন সাম্প্রতিক কাজ নেই</div>
+                    ) : (
+                        recentActivities.map((act) => (
+                            <div key={act.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer group">
+                                <div className={`p-2.5 rounded-xl ${act.bg} ${act.color} shrink-0`}>
+                                <act.icon size={18} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-0.5">
+                                    <p className="font-bold text-slate-800 dark:text-white text-xs truncate">{act.title}</p>
+                                    <span className="text-[9px] font-bold text-slate-400">{act.date}</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">{act.desc}</p>
+                                </div>
+                                {act.amount && (
+                                <span className={`text-xs font-bold ${act.color}`}>
+                                    {act.type === 'money' && act.icon === ArrowUpRight ? '-' : '+'} ৳{act.amount}
+                                </span>
+                                )}
+                            </div>
+                        ))
+                    )}
+                    </div>
+                </div>
+            </>
+         )}
       </div>
 
       {/* Bottom Sheet Modals */}

@@ -1,9 +1,8 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
-import { Building2, User, Mail, Phone, Lock, ArrowLeft, Eye, EyeOff, AlertTriangle, Loader2 } from 'lucide-react';
+import { Building2, User, Mail, Phone, Lock, ArrowLeft, Eye, EyeOff, AlertTriangle, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export const Register = () => {
   const navigate = useNavigate();
@@ -30,20 +29,17 @@ export const Register = () => {
     setLoading(true);
     setError('');
     
+    // SAFETY: Clear local storage to prevent data bleeding from previous sessions if any
     try {
-      // Validation
-      if (formData.password.length < 6) {
-        throw new Error('পাসওয়ার্ড কমপক্ষে ৬ সংখ্যার হতে হবে।');
-      }
+        localStorage.clear();
+    } catch(e) {}
 
-      if (!formData.email.includes('@')) {
-        throw new Error('সঠিক ইমেইল এড্রেস দিন।');
-      }
+    try {
+      if (formData.password.length < 6) throw new Error('পাসওয়ার্ড কমপক্ষে ৬ সংখ্যার হতে হবে।');
+      if (!formData.email.includes('@')) throw new Error('সঠিক ইমেইল এড্রেস দিন।');
 
-      // Sanitize phone number
       const cleanPhone = formData.phone.replace(/[\s-]/g, '');
 
-      // 1. Sign Up
       const { data, error } = await supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.password.trim(),
@@ -59,9 +55,8 @@ export const Register = () => {
 
       if (error) throw error;
 
-      // 2. Ensure Profile is Created (Upsert to be safe)
       if (data.user) {
-         const { error: profileError } = await supabase.from('profiles').upsert({
+         await supabase.from('profiles').upsert({
              id: data.user.id,
              full_name: formData.full_name.trim(),
              company_name: formData.company_name.trim(),
@@ -71,166 +66,139 @@ export const Register = () => {
              is_verified: true,
              balance: 0
          });
-         
-         if (profileError) console.error("Profile upsert error:", profileError.message);
       }
 
-      // 3. Handle Navigation based on Session
       if (data.session) {
-        // Immediate session available (Email verification disabled or unnecessary)
-        toast.success('রেজিষ্ট্রেশন সফল হয়েছে! ড্যাশবোর্ডে প্রবেশ করছেন...');
+        toast.success('রেজিষ্ট্রেশন সফল হয়েছে!');
         navigate('/'); 
       } else {
-        // No session? Try Auto Login manually as a fallback
         try {
-            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            const { data: signInData } = await supabase.auth.signInWithPassword({
                 email: formData.email.trim(),
                 password: formData.password.trim(),
             });
-
-            if (signInData.session) {
-                toast.success('স্বাগতম! ড্যাশবোর্ডে প্রবেশ করছেন...');
-                navigate('/');
-            } else {
-                toast.success('রেজিষ্ট্রেশন সফল! দয়া করে আপনার ইমেইল চেক করে ভেরিফাই করুন।');
-                navigate('/login');
-            }
-        } catch (autoLoginError) {
-            toast.success('রেজিষ্ট্রেশন সফল! দয়া করে লগইন করুন।');
+            if (signInData.session) navigate('/');
+            else navigate('/login');
+        } catch {
             navigate('/login');
         }
       }
 
     } catch (err: any) {
-      console.error("Signup Error:", err);
       let msg = err.message || "রেজিষ্ট্রেশন ব্যর্থ হয়েছে।";
-      
-      if (msg.includes("already registered")) {
-        msg = "এই ইমেইল দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট আছে। লগইন করুন।";
-      } else if (msg.includes("password")) {
-        msg = "পাসওয়ার্ডটি দুর্বল। আরো কঠিন পাসওয়ার্ড দিন।";
-      }
-
+      if (msg.includes("already registered")) msg = "এই ইমেইল দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট আছে।";
       setError(msg);
-      toast.error(msg);
+      toast.error('ত্রুটি', msg);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-white rounded-[2rem] shadow-xl border border-slate-100 p-8">
-        <button onClick={() => navigate('/login')} className="mb-6 text-slate-500 hover:text-blue-600 flex items-center gap-2 w-fit transition-colors text-sm font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-          <ArrowLeft size={16} /> ফিরে যান
-        </button>
-
-        <div className="mb-8">
-          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 shadow-sm border border-blue-100">
-             <Building2 size={28} />
-          </div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">নতুন অ্যাকাউন্ট</h1>
-          <p className="text-slate-500 text-sm mt-1 font-medium">ঠিকাদার হিসেবে রেজিষ্ট্রেশন করুন</p>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 text-red-600 text-xs font-bold mb-6 animate-pulse shadow-sm">
-             <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-             <p className="leading-relaxed">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">আপনার নাম</label>
-            <div className="relative group">
-              <User className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input
-                name="full_name"
-                type="text"
-                required
-                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
-                placeholder="পূর্ণ নাম"
-                onChange={handleChange}
-              />
+  const InputField = ({ label, icon: Icon, name, type = "text", placeholder, required = true }: any) => (
+    <div className="space-y-1.5">
+        <label className="text-xs font-bold text-slate-500 uppercase ml-1 block tracking-wider">{label}</label>
+        <div className="relative group">
+            <div className="absolute left-4 top-4 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                <Icon size={20} />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">প্রতিষ্ঠানের নাম</label>
-            <div className="relative group">
-              <Building2 className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input
-                name="company_name"
-                type="text"
-                required
-                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
-                placeholder="কোম্পানির নাম"
+            <input
+                name={name}
+                type={type}
+                required={required}
+                value={(formData as any)[name]}
                 onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">মোবাইল নাম্বার</label>
-            <div className="relative group">
-              <Phone className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input
-                name="phone"
-                type="tel"
-                required
-                placeholder="017xxxxxxxx"
-                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">ইমেইল</label>
-            <div className="relative group">
-              <Mail className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input
-                name="email"
-                type="email"
-                required
-                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
-                placeholder="example@mail.com"
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">পাসওয়ার্ড (মিনিমাম ৬)</label>
-            <div className="relative group">
-              <Lock className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
-              <input
-                name="password"
-                type={showPassword ? "text" : "password"}
-                required
-                className="w-full pl-11 pr-11 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
-                placeholder="••••••••"
-                onChange={handleChange}
-              />
-              <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 bg-white/50 p-1 rounded-md"
+                placeholder={placeholder}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-600/10 transition-all shadow-sm"
+            />
+            {name === 'password' && (
+                <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
+                    {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
+                </button>
+            )}
+        </div>
+    </div>
+  );
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-2xl font-bold mt-6 shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-[1.01] transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {loading ? <Loader2 size={20} className="animate-spin" /> : 'অ্যাকাউন্ট খুলুন'}
-          </button>
-        </form>
+  return (
+    <div className="h-screen bg-slate-50 relative font-sans flex flex-col overflow-hidden">
+      
+      {/* Centered Header Section - Height Reduced and Padding Adjusted to move content UP */}
+      <div className="h-[28vh] w-full relative overflow-hidden flex flex-col items-center justify-start pt-6 text-center px-6 shrink-0 bg-gradient-to-br from-blue-700 via-indigo-800 to-slate-900">
+         
+         {/* Back Button */}
+         <button 
+            onClick={() => navigate('/login')} 
+            className="absolute top-5 left-5 p-2.5 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors border border-white/10 active:scale-95 z-20"
+         >
+            <ArrowLeft size={20} />
+         </button>
+
+         {/* Abstract Textures */}
+         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+         <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-white opacity-10 rounded-full blur-[60px]"></div>
+         <div className="absolute bottom-[-10%] left-[-10%] w-60 h-60 bg-black opacity-20 rounded-full blur-[60px]"></div>
+         
+         <div className="relative z-10 animate-fade-in-up flex flex-col items-center">
+            {/* Logo */}
+            <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-[1.2rem] border border-white/20 flex items-center justify-center mb-3 shadow-2xl relative group">
+                <div className="absolute inset-0 bg-white/20 rounded-[1.2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <Building2 size={28} className="text-white drop-shadow-md relative z-10" />
+            </div>
+            
+            {/* Title */}
+            <h1 className="text-xl font-extrabold text-white tracking-tight">নতুন অ্যাকাউন্ট</h1>
+            
+            {/* Subtitle / Badge */}
+            <div className="flex items-center justify-center gap-2 mt-1.5 opacity-90 bg-blue-900/30 px-3 py-1 rounded-full border border-blue-500/30 backdrop-blur-sm">
+                <ShieldCheck size={12} className="text-green-300" />
+                <p className="text-white/90 text-[10px] font-bold">ঠিকাদার রেজিস্ট্রেশন</p>
+            </div>
+         </div>
+      </div>
+
+      {/* Scrollable Form Content - Overlapping Card Style */}
+      <div className="flex-1 bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] relative -mt-6 z-20 overflow-hidden flex flex-col">
+         
+         <div className="flex-1 overflow-y-auto px-6 py-8 pb-20">
+            {error && (
+               <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 animate-pulse shadow-sm">
+                  <div className="bg-red-100 p-1.5 rounded-full"><AlertTriangle size={16} className="shrink-0" /></div>
+                  <p className="text-xs font-bold leading-tight">{error}</p>
+               </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+               <InputField label="আপনার নাম" icon={User} name="full_name" placeholder="পূর্ণ নাম লিখুন" />
+               <InputField label="প্রতিষ্ঠানের নাম" icon={Building2} name="company_name" placeholder="কোম্পানির নাম লিখুন" />
+               <InputField label="মোবাইল নাম্বার" icon={Phone} name="phone" type="tel" placeholder="017xxxxxxxx" />
+               <InputField label="ইমেইল এড্রেস" icon={Mail} name="email" type="email" placeholder="example@email.com" />
+               <InputField 
+                   label="পাসওয়ার্ড (মিনিমাম ৬)" 
+                   icon={Lock} 
+                   name="password" 
+                   type={showPassword ? "text" : "password"} 
+                   placeholder="••••••••" 
+               />
+
+               <div className="pt-2">
+                   <button
+                       type="submit"
+                       disabled={loading}
+                       className="w-full py-4 rounded-2xl font-bold text-white text-lg shadow-xl hover:shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed"
+                   >
+                       {loading ? <Loader2 size={22} className="animate-spin" /> : <>রেজিষ্ট্রেশন করুন <ArrowRight size={20} /></>}
+                   </button>
+               </div>
+            </form>
+
+            <div className="mt-6 text-center text-xs text-slate-400 font-medium px-4 leading-relaxed">
+               রেজিষ্ট্রেশন করার মাধ্যমে আপনি আমাদের <span className="text-blue-600 font-bold">টার্মস</span> এবং <span className="text-blue-600 font-bold">প্রাইভেসি পলিসিতে</span> সম্মতি প্রদান করছেন।
+            </div>
+         </div>
       </div>
     </div>
   );

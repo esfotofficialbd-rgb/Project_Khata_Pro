@@ -28,6 +28,7 @@ export const Projects = () => {
   });
 
   const isSupervisor = user?.role === 'supervisor';
+  const themeColor = isSupervisor ? 'purple' : 'blue';
 
   // Redirect worker if they somehow access this page
   useEffect(() => {
@@ -96,7 +97,7 @@ export const Projects = () => {
   };
 
   // Consistent Input Styles (Theme Aware)
-  const inputClass = `w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-${isSupervisor ? 'purple' : 'blue'}-500 focus:ring-4 focus:ring-${isSupervisor ? 'purple' : 'blue'}-500/10 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 transition-all shadow-sm focus:shadow-md`;
+  const inputClass = `w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-${themeColor}-500 focus:ring-4 focus:ring-${themeColor}-500/10 text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 transition-all shadow-sm focus:shadow-md`;
   const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wide ml-1";
 
   return (
@@ -104,13 +105,13 @@ export const Projects = () => {
       {/* Header with Search */}
       <div className="bg-white dark:bg-slate-900 sticky top-0 z-20 px-4 pt-4 pb-2 shadow-sm border-b border-slate-100 dark:border-slate-800">
          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className={`text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2`}>
                <LayoutTemplate className={isSupervisor ? "text-purple-600" : "text-blue-600"} />
                প্রজেক্ট তালিকা
             </h2>
             <button 
                onClick={() => setIsModalOpen(true)}
-               className={`w-12 h-12 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform ${isSupervisor ? 'bg-purple-600 shadow-purple-200 dark:shadow-none' : 'bg-slate-900 dark:bg-blue-600'}`}
+               className={`w-12 h-12 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-transform bg-gradient-to-r ${isSupervisor ? 'from-purple-600 to-indigo-600 shadow-purple-200' : 'from-blue-600 to-indigo-600 shadow-blue-200'}`}
             >
                <Plus size={24} />
             </button>
@@ -123,7 +124,7 @@ export const Projects = () => {
                placeholder="প্রজেক্ট বা লোকেশন খুঁজুন..."
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
-               className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-${isSupervisor ? 'purple' : 'blue'}-500 outline-none text-sm transition-all text-slate-900 dark:text-white placeholder-slate-400 font-medium`}
+               className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-${themeColor}-500 outline-none text-sm transition-all text-slate-800 dark:text-white placeholder-slate-400 font-medium`}
             />
          </div>
 
@@ -132,10 +133,10 @@ export const Projects = () => {
                <button 
                   key={tab}
                   onClick={() => setActiveTab(tab as any)} 
-                  className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                  className={`px-5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${
                      activeTab === tab 
-                     ? `${isSupervisor ? 'bg-purple-600 text-white' : 'bg-slate-800 text-white dark:bg-white dark:text-slate-900'} shadow-md` 
-                     : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                     ? `bg-${themeColor}-50 dark:bg-${themeColor}-900/30 text-${themeColor}-700 dark:text-${themeColor}-300 border-${themeColor}-200 dark:border-${themeColor}-800` 
+                     : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
                   }`}
                >
                   {tab === 'all' ? 'সব প্রজেক্ট' : tab === 'active' ? 'চলমান' : 'সমাপ্ত'}
@@ -155,26 +156,28 @@ export const Projects = () => {
         ) : (
           filteredProjects.map((project) => {
             const progress = project.budget_amount > 0 ? (project.current_expense / project.budget_amount) * 100 : 0;
-            let typeConfig = { label: 'ফিক্সড', icon: Coins, bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-100 dark:border-blue-900/30' };
-            if (project.project_type === 'daily') typeConfig = { label: 'ডেইলি', icon: Clock, bg: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-600 dark:text-orange-400', border: 'border-orange-100 dark:border-orange-900/30' };
-            if (project.project_type === 'sqft') typeConfig = { label: 'স্কয়ার ফিট', icon: Ruler, bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-100 dark:border-purple-900/30' };
+            
+            // Refined Color Configs
+            let typeConfig = { label: 'ফিক্সড', icon: Coins, bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-100 dark:border-indigo-800' };
+            if (project.project_type === 'daily') typeConfig = { label: 'ডেইলি', icon: Clock, bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-800' };
+            if (project.project_type === 'sqft') typeConfig = { label: 'স্কয়ার ফিট', icon: Ruler, bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-100 dark:border-cyan-800' };
 
             return (
               <div 
                 key={project.id} 
                 onClick={() => navigate(`/projects/${project.id}`)}
-                className={`bg-white dark:bg-slate-900 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden active:scale-[0.99] transition-all group hover:border-${isSupervisor ? 'purple' : 'blue'}-200 dark:hover:border-${isSupervisor ? 'purple' : 'blue'}-800`}
+                className={`bg-white dark:bg-slate-900 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden active:scale-[0.99] transition-all group hover:border-${themeColor}-200 dark:hover:border-${themeColor}-800 hover:shadow-md`}
               >
                 {/* Advanced List Card Design */}
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-4">
                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-2xl ${typeConfig.bg} border ${typeConfig.border} flex items-center justify-center shrink-0 shadow-sm`}>
+                      <div className={`w-12 h-12 rounded-2xl ${typeConfig.bg} border ${typeConfig.border} flex items-center justify-center shrink-0 shadow-sm group-hover:scale-110 transition-transform`}>
                          <Building className={typeConfig.text} size={22} />
                       </div>
                       <div>
                          <h3 className="font-bold text-slate-800 dark:text-white text-lg leading-tight truncate max-w-[180px]">{project.project_name}</h3>
                          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
-                            <MapPin size={10} /> {project.location}
+                            <MapPin size={10} className={typeConfig.text} /> {project.location}
                          </p>
                       </div>
                    </div>
@@ -184,7 +187,7 @@ export const Projects = () => {
                 </div>
 
                 {/* Metrics */}
-                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800 mb-3">
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800 mb-4">
                    <div className="flex justify-between items-end mb-2">
                       <div>
                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">খরচ / বাজেট</p>
@@ -194,29 +197,29 @@ export const Projects = () => {
                          </p>
                       </div>
                       {project.project_type !== 'daily' && (
-                         <span className={`text-xs font-bold text-${isSupervisor ? 'purple' : 'blue'}-600 dark:text-${isSupervisor ? 'purple' : 'blue'}-400`}>{Math.round(progress)}%</span>
+                         <span className={`text-xs font-bold text-${themeColor}-600 dark:text-${themeColor}-400 bg-${themeColor}-50 dark:bg-${themeColor}-900/20 px-2 py-0.5 rounded`}>{Math.round(progress)}%</span>
                       )}
                    </div>
                    
                    {project.project_type !== 'daily' && (
                      <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
                         <div 
-                           className={`h-full rounded-full transition-all duration-700 ${progress > 100 ? 'bg-red-500' : isSupervisor ? 'bg-purple-600' : 'bg-blue-600'}`}
+                           className={`h-full rounded-full transition-all duration-700 ${progress > 100 ? 'bg-red-500' : `bg-${themeColor}-600`}`}
                            style={{ width: `${Math.min(progress, 100)}%` }}
                         ></div>
                      </div>
                    )}
                 </div>
 
-                <div className="flex justify-between items-center text-xs">
+                <div className="flex justify-between items-center text-xs pt-1">
                    <div className="flex -space-x-2">
                       {[...Array(3)].map((_, i) => (
-                         <div key={i} className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-500">
-                            <User size={10} />
+                         <div key={i} className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-white dark:border-slate-900 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                            <User size={12} />
                          </div>
                       ))}
                    </div>
-                   <div className={`flex items-center gap-1 text-slate-400 font-medium group-hover:text-${isSupervisor ? 'purple' : 'blue'}-600 transition-colors`}>
+                   <div className={`flex items-center gap-1 text-slate-400 font-bold group-hover:text-${themeColor}-600 transition-colors bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg`}>
                       বিস্তারিত <ChevronRight size={14} />
                    </div>
                 </div>
@@ -236,7 +239,7 @@ export const Projects = () => {
               </div>
 
               {/* Mode Selector */}
-              <div className="grid grid-cols-3 gap-2 mb-6 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
+              <div className="grid grid-cols-3 gap-2 mb-6 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700">
                  {[
                     { id: 'daily', label: 'ডেইলি', icon: Clock },
                     { id: 'fixed', label: 'ফিক্সড', icon: Coins },
@@ -247,12 +250,12 @@ export const Projects = () => {
                        onClick={() => setProjectMode(mode.id as any)}
                        className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 ${
                           projectMode === mode.id 
-                          ? `bg-white dark:bg-slate-700 text-${isSupervisor ? 'purple' : 'blue'}-600 dark:text-${isSupervisor ? 'purple' : 'blue'}-400 shadow-sm font-bold scale-105` 
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                          ? `bg-white dark:bg-slate-700 text-${themeColor}-600 dark:text-${themeColor}-400 shadow-md border border-slate-100 dark:border-slate-600` 
+                          : 'text-slate-500 dark:text-slate-400 hover:bg-white/50'
                        }`}
                     >
                        <mode.icon size={20} className="mb-1" />
-                       <span className="text-[10px]">{mode.label}</span>
+                       <span className="text-[10px] font-bold">{mode.label}</span>
                     </button>
                  ))}
               </div>
@@ -394,7 +397,7 @@ export const Projects = () => {
 
                 <button 
                   type="submit" 
-                  className={`w-full py-4 bg-gradient-to-r ${isSupervisor ? 'from-purple-600 to-indigo-600' : 'from-slate-900 to-slate-800 dark:from-blue-600 dark:to-indigo-600'} text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 hover:shadow-xl transition-all active:scale-95`}
+                  className={`w-full py-4 bg-gradient-to-r ${isSupervisor ? 'from-purple-600 to-indigo-600 shadow-purple-200' : 'from-blue-600 to-indigo-600 shadow-blue-200'} text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 hover:shadow-xl transition-all active:scale-95`}
                 >
                    {isSupervisor ? <Send size={18} /> : <CheckCircle size={18} />}
                    {isSupervisor ? 'অনুরোধ পাঠান' : 'প্রজেক্ট শুরু করুন'}

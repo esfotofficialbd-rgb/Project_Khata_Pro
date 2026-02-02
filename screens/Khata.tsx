@@ -15,6 +15,7 @@ export const Khata = () => {
   const [searchQuery, setSearchQuery] = useState('');
   
   const isSupervisor = user?.role === 'supervisor';
+  const themeColor = isSupervisor ? 'purple' : 'blue';
 
   // Overtime State
   const [otModalOpen, setOtModalOpen] = useState(false);
@@ -230,8 +231,8 @@ export const Khata = () => {
       {/* Header & Stats */}
       <div className="bg-white dark:bg-slate-900 p-4 shadow-sm border-b border-slate-100 dark:border-slate-800 space-y-4">
         {/* Date Navigator */}
-        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-100 dark:border-slate-700">
-          <button onClick={() => changeDate(-1)} className="p-3 hover:bg-white dark:hover:bg-slate-700 rounded-xl shadow-sm transition-all text-slate-500 dark:text-slate-300">
+        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700">
+          <button onClick={() => changeDate(-1)} className="p-3 hover:bg-white dark:hover:bg-slate-700 rounded-xl shadow-sm transition-all text-slate-500 dark:text-slate-300 active:scale-95">
             <ChevronLeft size={20} />
           </button>
           
@@ -241,27 +242,27 @@ export const Khata = () => {
                 {displayDate}
              </div>
              {selectedDate === new Date().toISOString().split('T')[0] && (
-                <span className="text-[10px] text-green-600 dark:text-green-400 font-bold bg-green-100 dark:bg-green-900/30 px-2 rounded-full mt-0.5">আজ</span>
+                <span className="text-[10px] text-green-600 dark:text-green-400 font-bold bg-green-100 dark:bg-green-900/30 px-3 py-0.5 rounded-full mt-1 border border-green-200 dark:border-green-800">আজ</span>
              )}
           </div>
           
-          <button onClick={() => changeDate(1)} className="p-3 hover:bg-white dark:hover:bg-slate-700 rounded-xl shadow-sm transition-all text-slate-500 dark:text-slate-300">
+          <button onClick={() => changeDate(1)} className="p-3 hover:bg-white dark:hover:bg-slate-700 rounded-xl shadow-sm transition-all text-slate-500 dark:text-slate-300 active:scale-95">
              <ChevronRight size={20} />
           </button>
         </div>
 
-        {/* Stats Row */}
+        {/* Colored Stats Row */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-2xl text-center border border-blue-100 dark:border-blue-900/30">
-            <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.totalPresent}</p>
+          <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-2xl text-center border border-blue-100 dark:border-blue-800 shadow-sm">
+            <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400">{stats.totalPresent}</p>
             <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">উপস্থিত</p>
           </div>
-          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-2xl text-center border border-red-100 dark:border-red-900/30">
-            <p className="text-xl font-bold text-red-600 dark:text-red-400">৳{Math.round(stats.totalDue / 1000)}k</p>
+          <div className="bg-amber-50 dark:bg-amber-900/30 p-3 rounded-2xl text-center border border-amber-100 dark:border-amber-800 shadow-sm">
+            <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400">৳{Math.round(stats.totalDue / 1000)}k</p>
             <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">বকেয়া</p>
           </div>
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-2xl text-center border border-emerald-100 dark:border-emerald-900/30">
-            <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">৳{stats.totalExpense}</p>
+          <div className="bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-2xl text-center border border-indigo-100 dark:border-indigo-800 shadow-sm">
+            <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">৳{stats.totalExpense}</p>
             <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">খরচ</p>
           </div>
         </div>
@@ -275,12 +276,12 @@ export const Khata = () => {
               placeholder="কর্মী খুঁজুন..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-${isSupervisor ? 'purple' : 'blue'}-500 outline-none text-sm text-slate-900 dark:text-white font-medium`}
+              className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-${themeColor}-500 outline-none text-sm text-slate-800 dark:text-white font-medium`}
             />
           </div>
           <button 
              onClick={startScanning}
-             className={`text-white p-3 rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${isSupervisor ? 'bg-purple-600' : 'bg-slate-900 dark:bg-blue-600'}`}
+             className={`text-white p-3 rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 bg-gradient-to-r ${isSupervisor ? 'from-purple-600 to-indigo-600 shadow-purple-200' : 'from-blue-600 to-indigo-600 shadow-blue-200'}`}
              title="QR স্ক্যানার চালু করুন"
           >
              <QrCode size={20} />
@@ -293,7 +294,7 @@ export const Khata = () => {
         {filteredWorkers.length === 0 ? (
           <div className="text-center py-10">
              <UserCheck size={48} className="text-slate-200 dark:text-slate-700 mx-auto mb-2"/>
-             <p className="text-slate-400 text-sm">কোন কর্মী নেই</p>
+             <p className="text-slate-400 text-sm font-bold">কোন কর্মী নেই</p>
           </div>
         ) : (
           filteredWorkers.map((worker) => {
@@ -303,39 +304,39 @@ export const Khata = () => {
               <div key={worker.id} className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-3">
-                      <img src={worker.avatar_url} className="w-12 h-12 rounded-full object-cover bg-slate-100 dark:bg-slate-800" />
+                      <img src={worker.avatar_url} className="w-12 h-12 rounded-full object-cover bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" />
                       <div>
                         <p className="font-bold text-slate-800 dark:text-white">{worker.full_name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{worker.skill_type} • ৳{worker.daily_rate}/দিন</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{worker.skill_type} • <span className="text-blue-600 dark:text-blue-400">৳{worker.daily_rate}/দিন</span></p>
                       </div>
                    </div>
-                   {ot > 0 && <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-lg font-bold">+ OT: {ot}h</span>}
+                   {ot > 0 && <span className="text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-2 py-1 rounded-lg font-bold border border-purple-200 dark:border-purple-800">+ OT: {ot}h</span>}
                 </div>
 
                 <div className="flex gap-2">
                   <button 
                     onClick={() => handleOvertimeClick(worker.id)}
-                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1 transition-all ${ot > 0 ? 'bg-purple-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 transition-all border ${ot > 0 ? 'bg-purple-600 text-white shadow-md border-purple-600' : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
                   >
                      <Clock size={16} /> OT
                   </button>
 
-                  <div className="flex-1 flex bg-slate-50 dark:bg-slate-800 p-1 rounded-xl">
+                  <div className="flex-1 flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                      <button 
                         onClick={() => handleStatusClick(worker.id, 'P')}
-                        className={`flex-1 rounded-lg text-xs font-bold transition-all ${status === 'P' ? 'bg-white dark:bg-slate-700 text-green-600 dark:text-green-400 shadow-sm scale-105' : 'text-slate-400'}`}
+                        className={`flex-1 rounded-lg text-xs font-bold transition-all ${status === 'P' ? 'bg-white dark:bg-slate-700 text-green-600 dark:text-green-400 shadow-sm scale-105 border border-green-100 dark:border-green-800' : 'text-slate-400 hover:text-slate-600'}`}
                      >
                         P
                      </button>
                      <button 
                         onClick={() => handleStatusClick(worker.id, 'H')}
-                        className={`flex-1 rounded-lg text-xs font-bold transition-all ${status === 'H' ? 'bg-white dark:bg-slate-700 text-yellow-600 dark:text-yellow-400 shadow-sm scale-105' : 'text-slate-400'}`}
+                        className={`flex-1 rounded-lg text-xs font-bold transition-all ${status === 'H' ? 'bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-sm scale-105 border border-amber-100 dark:border-amber-800' : 'text-slate-400 hover:text-slate-600'}`}
                      >
                         H
                      </button>
                      <button 
                         onClick={() => handleStatusClick(worker.id, 'A')}
-                        className={`flex-1 rounded-lg text-xs font-bold transition-all ${status === 'A' ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm scale-105' : 'text-slate-400'}`}
+                        className={`flex-1 rounded-lg text-xs font-bold transition-all ${status === 'A' ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm scale-105 border border-red-100 dark:border-red-800' : 'text-slate-400 hover:text-slate-600'}`}
                      >
                         A
                      </button>
@@ -350,7 +351,7 @@ export const Khata = () => {
       {/* Project Selection Modal */}
       {modalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-3xl animate-scale-up border border-slate-100 dark:border-slate-800 shadow-2xl">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-[2.5rem] animate-scale-up border border-slate-100 dark:border-slate-800 shadow-2xl">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                  <CheckCircle className="text-green-500" />
@@ -359,16 +360,16 @@ export const Khata = () => {
               <button onClick={() => setModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200"><X size={20} /></button>
             </div>
             
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">আজ কোন প্রজেক্টে কাজ করছে?</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 font-bold uppercase tracking-wide">আজ কোন প্রজেক্টে কাজ করছে?</p>
 
-            <div className="space-y-3 max-h-72 overflow-y-auto">
+            <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar pr-1">
               {projects.filter(p => p.status === 'active').map(project => (
                 <button
                   key={project.id}
                   onClick={() => confirmProject(project.id)}
-                  className={`w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-${isSupervisor ? 'purple' : 'blue'}-500 dark:hover:border-${isSupervisor ? 'purple' : 'blue'}-500 hover:bg-${isSupervisor ? 'purple' : 'blue'}-50 dark:hover:bg-${isSupervisor ? 'purple' : 'blue'}-900/20 transition-all group`}
+                  className={`w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-${themeColor}-500 dark:hover:border-${themeColor}-500 hover:bg-${themeColor}-50 dark:hover:bg-${themeColor}-900/20 transition-all group`}
                 >
-                  <p className={`font-bold text-slate-800 dark:text-white group-hover:text-${isSupervisor ? 'purple' : 'blue'}-700 dark:group-hover:text-${isSupervisor ? 'purple' : 'blue'}-400`}>{project.project_name}</p>
+                  <p className={`font-bold text-slate-800 dark:text-white group-hover:text-${themeColor}-700 dark:group-hover:text-${themeColor}-400`}>{project.project_name}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{project.location}</p>
                 </button>
               ))}
@@ -381,7 +382,7 @@ export const Khata = () => {
       {otModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setOtModalOpen(false)}></div>
-           <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-sm relative z-10 p-6 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm relative z-10 p-6 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">ওভারটাইম যুক্ত করুন</h3>
                 <button onClick={() => setOtModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500"><X size={20}/></button>
@@ -410,7 +411,7 @@ export const Khata = () => {
 
                  <button 
                    type="submit" 
-                   className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-xl font-bold shadow-lg shadow-purple-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2"
+                   className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2"
                  >
                     <CheckCircle size={20} /> নিশ্চিত করুন
                  </button>

@@ -16,6 +16,20 @@ export const WorkersList = () => {
   
   // If user is supervisor, they can only manage workers
   const isSupervisor = user?.role === 'supervisor';
+  // Theme Config based on User Role (Fixed Strings)
+  const theme = isSupervisor ? {
+      color: 'purple',
+      gradient: 'from-purple-600 to-indigo-600',
+      shadow: 'shadow-purple-200',
+      focusRing: 'focus:ring-purple-500',
+      borderFocus: 'focus:border-purple-500'
+  } : {
+      color: 'blue',
+      gradient: 'from-blue-600 to-indigo-600',
+      shadow: 'shadow-blue-200',
+      focusRing: 'focus:ring-blue-500',
+      borderFocus: 'focus:border-blue-500'
+  };
 
   useEffect(() => {
     if (location.state && (location.state as any).openAddModal) {
@@ -102,8 +116,8 @@ export const WorkersList = () => {
     }
   };
 
-  // Input Class
-  const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 transition-all shadow-sm";
+  // Input Class (Using Static Theme Object)
+  const inputClass = `w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none ${theme.borderFocus} focus:ring-4 ${theme.focusRing}/10 text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 transition-all shadow-sm`;
   const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wide ml-1";
 
   return (
@@ -114,18 +128,18 @@ export const WorkersList = () => {
          <h2 className="text-xl font-bold text-slate-800 dark:text-white">কর্মী তালিকা</h2>
          <button 
            onClick={() => setIsModalOpen(true)}
-           className={`w-12 h-12 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform ${isSupervisor ? 'bg-purple-600 shadow-purple-200 dark:shadow-none' : 'bg-slate-900 dark:bg-blue-600'}`}
+           className={`w-12 h-12 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-transform bg-gradient-to-r ${theme.gradient} ${theme.shadow}`}
          >
             <Plus size={24} />
          </button>
       </div>
 
       {!isSupervisor && (
-        <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="flex bg-white dark:bg-slate-800 p-1.5 rounded-2xl mb-4 border border-slate-100 dark:border-slate-700 shadow-sm">
           <button
             onClick={() => setActiveTab('worker')}
             className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'worker' ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+              activeTab === 'worker' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             <HardHat size={16} />
@@ -134,7 +148,7 @@ export const WorkersList = () => {
           <button
             onClick={() => setActiveTab('supervisor')}
             className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'supervisor' ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+              activeTab === 'supervisor' ? 'bg-purple-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'
             }`}
           >
             <UserCog size={16} />
@@ -150,26 +164,28 @@ export const WorkersList = () => {
           placeholder="নাম বা ফোন নম্বর খুঁজুন..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className={`w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium shadow-sm ${isSupervisor ? 'focus:ring-purple-500' : 'focus:ring-blue-500'}`}
+          className={`w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm text-slate-800 dark:text-white placeholder-slate-400 font-medium shadow-sm ${theme.focusRing}`}
         />
       </div>
 
       <div className="space-y-3">
         {filteredUsers.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-sm">কোন তথ্য পাওয়া যায়নি</div>
+          <div className="text-center py-10 text-slate-400 text-sm font-medium">কোন তথ্য পাওয়া যায়নি</div>
         ) : (
           filteredUsers.map(user => (
             <div 
                key={user.id} 
                onClick={() => navigate(`/workers/${user.id}`)}
-               className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 active:scale-[0.99] transition-transform cursor-pointer relative overflow-hidden group hover:border-blue-200 dark:hover:border-blue-900"
+               className={`bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 active:scale-[0.99] transition-all cursor-pointer relative overflow-hidden group hover:border-${user.role === 'worker' ? 'emerald-200' : 'purple-200'}`}
             >
-              {/* Left Stripe */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${user.role === 'worker' ? 'bg-emerald-500' : 'bg-purple-500'}`}></div>
+              {/* Left Stripe - Using explicit classes */}
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${user.role === 'worker' ? 'bg-emerald-500' : 'bg-purple-500'}`}></div>
 
               <div className="relative">
                  <img src={user.avatar_url || 'https://picsum.photos/50'} className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 object-cover border-2 border-white dark:border-slate-800 shadow-sm" alt="" />
-                 <div className={`absolute -bottom-1 -right-1 p-1 rounded-full border-2 border-white dark:border-slate-900 ${user.balance > 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
+                 {user.balance > 0 && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></div>
+                 )}
               </div>
               
               <div className="flex-1 min-w-0 pl-1">
@@ -373,7 +389,7 @@ export const WorkersList = () => {
 
                 <button 
                   type="submit" 
-                  className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg mt-4 transition-all active:scale-95 ${formRole === 'worker' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none' : 'bg-purple-600 hover:bg-purple-700 shadow-purple-200 dark:shadow-none'}`}
+                  className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg mt-4 transition-all active:scale-95 bg-gradient-to-r ${formRole === 'worker' ? 'from-emerald-600 to-teal-600 shadow-emerald-200' : 'from-purple-600 to-indigo-600 shadow-purple-200'}`}
                 >
                    {formRole === 'worker' ? 'শ্রমিক যুক্ত করুন' : 'সুপারভাইজার যুক্ত করুন'}
                 </button>

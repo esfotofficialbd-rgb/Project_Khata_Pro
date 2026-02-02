@@ -5,10 +5,11 @@ import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2 } from 'lucide-react';
 import { Transaction, WorkReport, MaterialLog } from '../types';
+import { supabase } from '../supabaseClient';
 
 export const SupervisorDashboard = () => {
   const { user } = useAuth();
-  const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, addWorkReport, addMaterialLog, materialLogs, workReports, t, sendNotification, addPublicNotice, publicNotices } = useData();
+  const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, addWorkReport, addMaterialLog, materialLogs, workReports, t, sendNotification, addPublicNotice, publicNotices, updateUserLocation, isLoadingData } = useData();
   const { toast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -16,17 +17,13 @@ export const SupervisorDashboard = () => {
   const today = new Date().toISOString().split('T')[0];
   const stats = getDailyStats(today);
 
-  // Check if supervisor has marked attendance today
   const myAttendance = attendance.find(a => a.worker_id === user?.id && a.date === today);
   const myProject = projects.find(p => p.id === (myAttendance ? myAttendance.project_id : user?.assigned_project_id));
 
-  // --- SUPERVISOR PERSONAL STATS ---
-  // Calculate total work days and earnings for the supervisor themselves
   const myHistory = attendance.filter(a => a.worker_id === user?.id);
   const myTotalWorkDays = myHistory.filter(a => a.status === 'P' || a.status === 'H').length;
   const myBalance = user?.balance || 0;
 
-  // Clock & Greeting
   const [time, setTime] = useState(new Date());
   const [greeting, setGreeting] = useState('');
 
@@ -51,22 +48,23 @@ export const SupervisorDashboard = () => {
   const [currentFeedIndex, setCurrentFeedIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   
+  // Automatic Tracking Ref
+  const watchIdRef = useRef<number | null>(null);
+
   // Forms
   const [txForm, setTxForm] = useState({ amount: '', description: '', projectId: '' });
   const [payForm, setPayForm] = useState({ workerId: '', amount: '' });
   const [reportForm, setReportForm] = useState({ projectId: '', description: '', image_url: '' });
   const [materialForm, setMaterialForm] = useState({ projectId: '', item_name: '', quantity: '', unit: '', supplier: '', challan_photo: '' });
   
-  // Notice Form
   const [noticeText, setNoticeText] = useState('');
   const [noticeType, setNoticeType] = useState<'contractor' | 'public'>('contractor');
 
-  // Consistent Input Style Class (Purple Focus for Supervisor)
   const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 transition-all shadow-sm focus:shadow-md";
   const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wide ml-1";
 
-  // Auto-select Assigned Project
   useEffect(() => {
     if (user?.assigned_project_id) {
         const assignedId = user.assigned_project_id;
@@ -76,40 +74,120 @@ export const SupervisorDashboard = () => {
     }
   }, [user, activeModal]);
 
-  // Image Handling
+  // Automatic Tracking Effect (Starts on Mount)
+  useEffect(() => {
+      if (!navigator.geolocation) {
+          console.warn('Geolocation is not supported by this browser.');
+          return;
+      }
+
+      // Start watching position automatically
+      watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+              // Successfully got location - update DB
+              updateUserLocation(pos.coords.latitude, pos.coords.longitude, true);
+          },
+          (err) => {
+              console.error("Auto tracking error:", err);
+              // Silent fail
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+
+      // Cleanup on unmount
+      return () => {
+          if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+              // Mark inactive on leave
+              if(user) updateUserLocation(0, 0, false);
+          }
+      };
+  }, []);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'report' | 'material') => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 800; // Resize for storage efficiency
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
-          canvas.height = img.height * scaleSize;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          
-          if (type === 'report') {
-             setReportForm(prev => ({ ...prev, image_url: dataUrl }));
-          } else {
-             setMaterialForm(prev => ({ ...prev, challan_photo: dataUrl }));
+      setIsProcessingImage(true);
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+          try {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 800; 
+              let width = img.width;
+              let height = img.height;
+
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              
+              canvas.toBlob(async (blob) => {
+                  if (blob) {
+                      const folder = type === 'report' ? 'reports' : 'materials';
+                      const fileName = `${folder}/${user!.id}-${Date.now()}.jpg`;
+                      
+                      try {
+                          const { data, error } = await supabase.storage
+                              .from('images')
+                              .upload(fileName, blob, {
+                                  contentType: 'image/jpeg',
+                                  upsert: true
+                              });
+
+                          if (error) throw error;
+
+                          const { data: publicData } = supabase.storage
+                              .from('images')
+                              .getPublicUrl(fileName);
+
+                          if (type === 'report') {
+                             setReportForm(prev => ({ ...prev, image_url: publicData.publicUrl }));
+                          } else {
+                             setMaterialForm(prev => ({ ...prev, challan_photo: publicData.publicUrl }));
+                          }
+                          toast.success('ছবি আপলোড হয়েছে');
+                      } catch (uploadError) {
+                          console.warn("Storage failed, using Base64 fallback", uploadError);
+                          
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                              const base64String = reader.result as string;
+                              if (type === 'report') {
+                                 setReportForm(prev => ({ ...prev, image_url: base64String }));
+                              } else {
+                                 setMaterialForm(prev => ({ ...prev, challan_photo: base64String }));
+                              }
+                              toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
+                          };
+                          reader.readAsDataURL(blob);
+                      } finally {
+                          setIsProcessingImage(false);
+                      }
+                  }
+              }, 'image/jpeg', 0.7);
+
+          } catch (error: any) {
+              console.error(error);
+              toast.error('ছবি আপলোডে সমস্যা', error.message);
+              setIsProcessingImage(false);
           }
-        };
-        img.src = event.target?.result as string;
       };
-      reader.readAsDataURL(file);
+      img.src = objectUrl;
     }
+    if (e.target) e.target.value = '';
   };
 
-  // --- SMART FEED LOGIC ---
   const feedItems = useMemo(() => {
      let items: any[] = [];
 
-     // 0. Public Notices (Highest Priority)
      const recentNotices = publicNotices.sort((a,b) => b.created_at.localeCompare(a.created_at)).slice(0, 3);
      recentNotices.forEach(notice => {
          items.push({
@@ -124,7 +202,6 @@ export const SupervisorDashboard = () => {
          });
      });
 
-     // 1. Expense Alert
      const lastExpense = transactions
         .filter(t => t.type === 'expense')
         .sort((a,b) => b.id.localeCompare(a.id))[0];
@@ -143,7 +220,6 @@ export const SupervisorDashboard = () => {
         });
      }
 
-     // 2. Attendance Status
      const totalPresent = attendance.filter(a => a.date === today && (a.status === 'P' || a.status === 'H')).length;
      if (totalPresent > 0) {
         items.push({
@@ -158,7 +234,6 @@ export const SupervisorDashboard = () => {
         });
      }
 
-     // 3. Material Update
      const lastMaterial = materialLogs.sort((a,b) => b.id.localeCompare(a.id))[0];
      if (lastMaterial) {
         const pName = projects.find(p => p.id === lastMaterial.project_id)?.project_name || 'Unknown';
@@ -174,7 +249,6 @@ export const SupervisorDashboard = () => {
         });
      }
 
-     // Default
      if (items.length === 0) {
         items.push({
            id: 'default',
@@ -191,7 +265,6 @@ export const SupervisorDashboard = () => {
      return items;
   }, [transactions, attendance, materialLogs, today, projects, publicNotices]);
 
-  // Feed Auto-Rotation
   useEffect(() => {
     if (feedItems.length <= 1 || isPaused) return;
     const interval = setInterval(() => {
@@ -202,13 +275,11 @@ export const SupervisorDashboard = () => {
 
   const currentItem = feedItems[currentFeedIndex] || feedItems[0];
 
-  // Helper date formatter
   const formatDateDetailed = (dateStr: string) => {
       const d = new Date(dateStr);
       return d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
-  // Handlers
   const handleTxSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newTx: Transaction = {
@@ -309,18 +380,49 @@ export const SupervisorDashboard = () => {
 
   const selectedWorkerBalance = payForm.workerId ? getWorkerBalance(payForm.workerId) : 0;
 
-  // Recent Expenses (Last 5)
   const recentExpenses = transactions
     .filter(t => t.type === 'expense' || t.type === 'salary')
     .sort((a, b) => Number(b.id) - Number(a.id))
     .slice(0, 5);
 
+  // --- SKELETON COMPONENT ---
+  const DashboardSkeleton = () => (
+    <div className="space-y-4 animate-pulse">
+        {/* Project Card Skeleton */}
+        <div className="h-44 rounded-[1.8rem] bg-slate-200 dark:bg-slate-800 w-full mb-4"></div>
+        
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-2 gap-2.5">
+            <div className="h-24 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+            <div className="h-24 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+        </div>
+
+        {/* Actions Grid Skeleton */}
+        <div>
+            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-full mb-3"></div>
+            <div className="grid grid-cols-3 gap-2.5">
+                {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-24 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                ))}
+            </div>
+        </div>
+
+        {/* List Skeleton */}
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
+            <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-full mb-4"></div>
+            <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-14 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                ))}
+            </div>
+        </div>
+    </div>
+  );
+
   return (
     <div className="pb-24 relative bg-slate-50 dark:bg-slate-950 min-h-screen font-sans selection:bg-purple-100">
 
-      {/* Modern Header - Mobile Optimized */}
       <div className="bg-white dark:bg-slate-900 px-4 pt-3 pb-5 rounded-b-[2rem] shadow-sm border-b border-slate-100 dark:border-slate-800 mb-3 relative overflow-hidden">
-         {/* Background Decor */}
          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
          
          <div className="flex justify-between items-center mb-4 relative z-10">
@@ -328,18 +430,21 @@ export const SupervisorDashboard = () => {
                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
                   <Sun size={10} className="text-orange-400" /> {greeting}
                </p>
-               {/* Role as Title (No Name) */}
                <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight mt-0.5">
                   সাইট ইঞ্জিনিয়ার
                </h1>
             </div>
-            <div className="text-right bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">{dateString}</p>
-                <p className="text-sm font-bold text-purple-600 dark:text-purple-400 font-mono leading-none mt-0.5">{timeString}</p>
+            
+            {/* Auto Tracking Indicator */}
+            <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                   <span className="opacity-80">লাইভ ট্র্যাকিং</span>
+                </div>
+                {isLoadingData && <p className="text-[9px] text-slate-400 animate-pulse flex items-center gap-1"><Loader2 size={8} className="animate-spin"/> Syncing...</p>}
             </div>
          </div>
 
-         {/* SMART FEED - Compact */}
          <div 
             className={`w-full relative overflow-hidden rounded-xl border ${currentItem.border} ${currentItem.bg} transition-all duration-500`}
             onMouseEnter={() => setIsPaused(true)}
@@ -347,7 +452,6 @@ export const SupervisorDashboard = () => {
             onTouchStart={() => setIsPaused(true)}
             onTouchEnd={() => setIsPaused(false)}
          >
-            {/* Progress Bar */}
             {feedItems.length > 1 && (
                <div className="absolute top-0 left-0 w-full h-0.5 bg-black/5 dark:bg-white/5">
                   <div 
@@ -381,190 +485,184 @@ export const SupervisorDashboard = () => {
       </div>
 
       <div className="px-4 space-y-4">
-        {/* Site Status Card - Compact */}
-        <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-fuchsia-900 dark:from-slate-900 dark:to-purple-900 rounded-[1.8rem] p-5 shadow-lg shadow-purple-500/10 dark:shadow-none relative overflow-hidden text-white group">
-            {/* Texture */}
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-            
-            <div className="relative z-10">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <div className="bg-white/20 p-1 rounded-md backdrop-blur-sm">
-                               <Construction size={10} className="text-white" />
-                            </div>
-                            <span className="text-[10px] font-bold text-purple-100 uppercase tracking-widest">সাইট স্ট্যাটাস</span>
-                        </div>
-                        <h2 className="text-xl font-bold truncate max-w-[200px] text-white tracking-tight">{myProject?.project_name || 'জেনারেল'}</h2>
-                        <p className="text-[10px] text-purple-200 mt-0.5 flex items-center gap-1 font-medium">
-                            <MapPin size={10} /> {myProject?.location || 'N/A'}
-                        </p>
-                    </div>
-                    {myAttendance ? (
-                        <div className="bg-green-500/20 text-green-300 px-2.5 py-1 rounded-lg text-[9px] font-bold border border-green-500/30 flex items-center gap-1 backdrop-blur-md">
-                            <CheckCircle size={10} /> উপস্থিত
-                        </div>
-                    ) : (
-                        <button onClick={() => navigate('/entry')} className="bg-white text-purple-900 px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm animate-pulse flex items-center gap-1">
-                            <PlayCircle size={12} /> এন্ট্রি দিন
-                        </button>
-                    )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white/10 p-3 rounded-xl backdrop-blur-md border border-white/5 text-center">
-                        <p className="text-[9px] text-purple-200 uppercase tracking-wider font-bold mb-0.5">মোট লেবার</p>
-                        <p className="text-lg font-bold text-white">{stats.totalPresent}</p>
-                    </div>
-                    <div className="bg-white/10 p-3 rounded-xl backdrop-blur-md border border-white/5 text-center">
-                        <p className="text-[9px] text-purple-200 uppercase tracking-wider font-bold mb-0.5">আজকের খরচ</p>
-                        <p className="text-lg font-bold text-white">৳{stats.totalExpense.toLocaleString()}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* Personal Stats Grid - Compact */}
-        <div className="grid grid-cols-2 gap-2.5">
-             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-3">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-lg text-blue-600 dark:text-blue-400">
-                    <UserCheck size={18} />
-                </div>
-                <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">আমার হাজিরা</p>
-                    <p className="text-lg font-bold text-slate-800 dark:text-white leading-none mt-0.5">{myTotalWorkDays} <span className="text-[10px] text-slate-400">দিন</span></p>
-                </div>
-             </div>
-             
-             <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-3">
-                <div className="bg-purple-50 dark:bg-purple-900/20 p-2.5 rounded-lg text-purple-600 dark:text-purple-400">
-                    <Wallet size={18} />
-                </div>
-                <div>
-                    <p className="text-[9px] text-slate-400 font-bold uppercase">পাওনা বেতন</p>
-                    <p className={`text-lg font-bold leading-none mt-0.5 ${myBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {myBalance.toLocaleString()}</p>
-                </div>
-             </div>
-        </div>
-
-        {/* Site Management - Compact Grid */}
-        <div>
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-xs uppercase tracking-wider flex items-center gap-2">
-               <div className="w-1 h-3 bg-purple-500 rounded-full"></div> {t('site_management')}
-            </h3>
-            
-            <div className="grid grid-cols-3 gap-2.5">
-               {/* Expense */}
-               <button 
-                 onClick={() => setActiveModal('expense')}
-                 className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-               >
-                  <div className="bg-purple-50 dark:bg-purple-900/20 p-2.5 rounded-full text-purple-600 dark:text-purple-400 shadow-sm">
-                     <DollarSign size={18} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('expense_entry')}</span>
-               </button>
-
-               {/* Payment */}
-               <button 
-                 onClick={() => setActiveModal('payment')}
-                 className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-               >
-                  <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2.5 rounded-full text-emerald-600 dark:text-emerald-400 shadow-sm">
-                     <Wallet size={18} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('labor_payment')}</span>
-               </button>
-
-               {/* Material */}
-               <button 
-                 onClick={() => setActiveModal('material')}
-                 className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-               >
-                  <div className="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-full text-orange-600 dark:text-orange-400 shadow-sm">
-                     <PackageCheck size={18} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('material_stock')}</span>
-               </button>
-
-               {/* Report */}
-               <button 
-                 onClick={() => setActiveModal('report')}
-                 className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-               >
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-2.5 rounded-full text-indigo-600 dark:text-indigo-400 shadow-sm">
-                     <FileText size={18} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('daily_report')}</span>
-               </button>
-               
-               {/* NOTICE Button */}
-               <button 
-                 onClick={() => setActiveModal('notice')}
-                 className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-               >
-                  <div className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-full text-red-600 dark:text-red-400 shadow-sm">
-                     <Megaphone size={18} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">নোটিশ দিন</span>
-               </button>
-
-               {/* Add Worker */}
-               <button 
-                 onClick={() => navigate('/workers', { state: { openAddModal: true } })}
-                 className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-               >
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-full text-blue-600 dark:text-blue-400 shadow-sm">
-                     <PlusCircle size={18} strokeWidth={2.5} />
-                  </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('add_worker')}</span>
-               </button>
-            </div>
-        </div>
-
-        {/* Recent Expenses - Compact List */}
-        <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-            <div className="flex justify-between items-center mb-3">
-                <h3 className="text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wide flex items-center gap-2">
-                <History size={14} className="text-slate-400"/>
-                {t('recent_expense')}
-                </h3>
-                <button onClick={() => navigate('/accounts')} className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded-lg">
-                    সব দেখুন
-                </button>
-            </div>
-            
-            <div className="space-y-2">
-                {recentExpenses.length === 0 ? (
-                <div className="text-center py-6 text-slate-400 text-xs font-bold bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                    <ClipboardList size={20} className="mx-auto mb-1 opacity-50"/>
-                    {t('no_expense_today')}
-                </div>
-                ) : (
-                recentExpenses.map(tx => (
-                    <div key={tx.id} className="flex items-center justify-between group p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors border border-transparent">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30">
-                                <ArrowUpRight size={14} />
-                            </div>
+        {isLoadingData ? (
+            <DashboardSkeleton />
+        ) : (
+            <>
+                <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-fuchsia-900 dark:from-slate-900 dark:to-purple-900 rounded-[1.8rem] p-5 shadow-lg shadow-purple-500/10 dark:shadow-none relative overflow-hidden text-white group">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                    
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-4">
                             <div>
-                                <p className="font-bold text-xs text-slate-800 dark:text-white line-clamp-1">{tx.description}</p>
-                                <p className="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
-                                    <Clock size={8} /> {formatDateDetailed(tx.date)}
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <div className="bg-white/20 p-1 rounded-md backdrop-blur-sm">
+                                    <Construction size={10} className="text-white" />
+                                    </div>
+                                    <span className="text-[10px] font-bold text-purple-100 uppercase tracking-widest">সাইট স্ট্যাটাস</span>
+                                </div>
+                                <h2 className="text-xl font-bold truncate max-w-[200px] text-white tracking-tight">{myProject?.project_name || 'জেনারেল'}</h2>
+                                <p className="text-[10px] text-purple-200 mt-0.5 flex items-center gap-1 font-medium">
+                                    <MapPin size={10} /> {myProject?.location || 'N/A'}
                                 </p>
                             </div>
+                            {myAttendance ? (
+                                <div className="bg-green-500/20 text-green-300 px-2.5 py-1 rounded-lg text-[9px] font-bold border border-green-500/30 flex items-center gap-1 backdrop-blur-md">
+                                    <CheckCircle size={10} /> উপস্থিত
+                                </div>
+                            ) : (
+                                <button onClick={() => navigate('/entry')} className="bg-white text-purple-900 px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-sm animate-pulse flex items-center gap-1">
+                                    <PlayCircle size={12} /> এন্ট্রি দিন
+                                </button>
+                            )}
                         </div>
-                        <span className="font-bold text-purple-600 dark:text-purple-400 text-xs bg-purple-50 dark:bg-purple-900/10 px-2 py-1 rounded-lg border border-purple-100 dark:border-purple-900/20">
-                            - ৳{tx.amount.toLocaleString()}
-                        </span>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-white/10 p-3 rounded-xl backdrop-blur-md border border-white/5 text-center">
+                                <p className="text-[9px] text-purple-200 uppercase tracking-wider font-bold mb-0.5">মোট লেবার</p>
+                                <p className="text-lg font-bold text-white">{stats.totalPresent}</p>
+                            </div>
+                            <div className="bg-white/10 p-3 rounded-xl backdrop-blur-md border border-white/5 text-center">
+                                <p className="text-[9px] text-purple-200 uppercase tracking-wider font-bold mb-0.5">আজকের খরচ</p>
+                                <p className="text-lg font-bold text-white">৳{stats.totalExpense.toLocaleString()}</p>
+                            </div>
+                        </div>
                     </div>
-                ))
-                )}
-            </div>
-        </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5">
+                    <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-3">
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-lg text-blue-600 dark:text-blue-400">
+                            <UserCheck size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">আমার হাজিরা</p>
+                            <p className="text-lg font-bold text-slate-800 dark:text-white leading-none mt-0.5">{myTotalWorkDays} <span className="text-[10px] text-slate-400">দিন</span></p>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-3">
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-2.5 rounded-lg text-purple-600 dark:text-purple-400">
+                            <Wallet size={18} />
+                        </div>
+                        <div>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">পাওনা বেতন</p>
+                            <p className={`text-lg font-bold leading-none mt-0.5 ${myBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {myBalance.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <div className="w-1 h-3 bg-purple-500 rounded-full"></div> {t('site_management')}
+                    </h3>
+                    
+                    <div className="grid grid-cols-3 gap-2.5">
+                    <button 
+                        onClick={() => setActiveModal('expense')}
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                    >
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-2.5 rounded-full text-purple-600 dark:text-purple-400 shadow-sm">
+                            <DollarSign size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('expense_entry')}</span>
+                    </button>
+
+                    <button 
+                        onClick={() => setActiveModal('payment')}
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                    >
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2.5 rounded-full text-emerald-600 dark:text-emerald-400 shadow-sm">
+                            <Wallet size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('labor_payment')}</span>
+                    </button>
+
+                    <button 
+                        onClick={() => setActiveModal('material')}
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                    >
+                        <div className="bg-orange-50 dark:bg-orange-900/20 p-2.5 rounded-full text-orange-600 dark:text-orange-400 shadow-sm">
+                            <PackageCheck size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('material_stock')}</span>
+                    </button>
+
+                    <button 
+                        onClick={() => setActiveModal('report')}
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                    >
+                        <div className="bg-indigo-50 dark:bg-indigo-900/20 p-2.5 rounded-full text-indigo-600 dark:text-indigo-400 shadow-sm">
+                            <FileText size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('daily_report')}</span>
+                    </button>
+                    
+                    <button 
+                        onClick={() => setActiveModal('notice')}
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                    >
+                        <div className="bg-red-50 dark:bg-red-900/20 p-2.5 rounded-full text-red-600 dark:text-red-400 shadow-sm">
+                            <Megaphone size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">নোটিশ দিন</span>
+                    </button>
+
+                    <button 
+                        onClick={() => navigate('/workers', { state: { openAddModal: true } })}
+                        className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                    >
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-full text-blue-600 dark:text-blue-400 shadow-sm">
+                            <PlusCircle size={18} strokeWidth={2.5} />
+                        </div>
+                        <span className="font-bold text-slate-700 dark:text-slate-300 text-[10px] text-center leading-none">{t('add_worker')}</span>
+                    </button>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wide flex items-center gap-2">
+                        <History size={14} className="text-slate-400"/>
+                        {t('recent_expense')}
+                        </h3>
+                        <button onClick={() => navigate('/accounts')} className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded-lg">
+                            সব দেখুন
+                        </button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        {recentExpenses.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 text-xs font-bold bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                            <ClipboardList size={20} className="mx-auto mb-1 opacity-50"/>
+                            {t('no_expense_today')}
+                        </div>
+                        ) : (
+                        recentExpenses.map(tx => (
+                            <div key={tx.id} className="flex items-center justify-between group p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors border border-transparent">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30">
+                                        <ArrowUpRight size={14} />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-xs text-slate-800 dark:text-white line-clamp-1">{tx.description}</p>
+                                        <p className="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
+                                            <Clock size={8} /> {formatDateDetailed(tx.date)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="font-bold text-purple-600 dark:text-purple-400 text-xs bg-purple-50 dark:bg-purple-900/10 px-2 py-1 rounded-lg border border-purple-100 dark:border-purple-900/20">
+                                    - ৳{tx.amount.toLocaleString()}
+                                </span>
+                            </div>
+                        ))
+                        )}
+                    </div>
+                </div>
+            </>
+        )}
       </div>
       
-      {/* Expense Modal (Purple Theme) */}
       {activeModal === 'expense' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -636,7 +734,6 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
-      {/* Payment Modal */}
       {activeModal === 'payment' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -702,7 +799,6 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
-      {/* Material Log Modal */}
       {activeModal === 'material' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -794,7 +890,7 @@ export const SupervisorDashboard = () => {
                         className="w-full h-32 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors relative overflow-hidden group"
                     >
                         {materialForm.challan_photo ? (
-                            <img src={materialForm.challan_photo} alt="Challan" className="w-full h-full object-cover" />
+                            <img src={materialForm.challan_photo} alt="Challan" className="w-full h-full object-cover transition-opacity" style={{ opacity: isProcessingImage ? 0.5 : 1 }} />
                         ) : (
                             <>
                                 <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-full mb-2 group-hover:scale-110 transition-transform">
@@ -803,11 +899,18 @@ export const SupervisorDashboard = () => {
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">ছবি তুলুন</p>
                             </>
                         )}
+                        
+                        {isProcessingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-purple-600" size={32} />
+                          </div>
+                        )}
+
                         <input 
                             type="file" 
                             ref={fileInputRef}
                             className="hidden"
-                            accept="image/*"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
                             capture="environment"
                             onChange={(e) => handleImageUpload(e, 'material')}
                         />
@@ -816,9 +919,10 @@ export const SupervisorDashboard = () => {
 
                  <button 
                    type="submit" 
-                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
+                   disabled={isSubmitting || isProcessingImage}
+                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                  >
-                    <CheckCircle size={20} />
+                    {isProcessingImage ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
                     {t('submit_entry')}
                  </button>
               </form>
@@ -826,7 +930,6 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
-      {/* Work Report Modal */}
       {activeModal === 'report' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -877,7 +980,7 @@ export const SupervisorDashboard = () => {
                         className="w-full h-40 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors relative overflow-hidden group"
                     >
                         {reportForm.image_url ? (
-                            <img src={reportForm.image_url} alt="Work" className="w-full h-full object-cover" />
+                            <img src={reportForm.image_url} alt="Work" className="w-full h-full object-cover transition-opacity" style={{ opacity: isProcessingImage ? 0.5 : 1 }} />
                         ) : (
                             <>
                                 <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-full mb-2 group-hover:scale-110 transition-transform">
@@ -886,11 +989,18 @@ export const SupervisorDashboard = () => {
                                 <p className="text-[10px] text-slate-400 font-bold uppercase">কাজের ছবি দিন</p>
                             </>
                         )}
+                        
+                        {isProcessingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-purple-600" size={32} />
+                          </div>
+                        )}
+
                         <input 
                             type="file" 
                             ref={fileInputRef}
                             className="hidden"
-                            accept="image/*"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
                             capture="environment"
                             onChange={(e) => handleImageUpload(e, 'report')}
                         />
@@ -899,10 +1009,10 @@ export const SupervisorDashboard = () => {
 
                  <button 
                    type="submit" 
-                   disabled={isSubmitting}
-                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-300"
+                   disabled={isSubmitting || isProcessingImage}
+                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
                  >
-                    <Send size={18} />
+                    {isProcessingImage ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
                     {isSubmitting ? 'পাঠানো হচ্ছে...' : t('submit_report')}
                  </button>
               </form>
@@ -910,7 +1020,6 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
-      {/* Notice Modal - Updated */}
       {activeModal === 'notice' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -969,7 +1078,6 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
-      {/* Animation Styles */}
       <style>{`
         @keyframes slideUp {
           from { transform: translateY(100%); opacity: 0; }

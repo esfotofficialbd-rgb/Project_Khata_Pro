@@ -1,17 +1,23 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
-import { ArrowLeft, Phone, Calendar, Briefcase, DollarSign, User, CheckCircle, Wallet, X, Edit2, Camera, Clock, MessageSquare, History, TrendingUp, Send } from 'lucide-react';
+import { useAuth } from '../context/SessionContext';
+import { ArrowLeft, Phone, Calendar, Briefcase, DollarSign, User, CheckCircle, Wallet, X, Edit2, Camera, Clock, MessageSquare, TrendingUp, UserCog, HardHat, ShieldCheck, Loader2 } from 'lucide-react';
 import { Profile } from '../types';
+import { useToast } from '../context/ToastContext';
+import { supabase } from '../supabaseClient';
 
 export const WorkerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth(); // Logged in user (Contractor)
   const { users, attendance, payWorker, updateUser, transactions } = useData();
+  const { toast } = useToast();
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [activeHistoryTab, setActiveHistoryTab] = useState<'attendance' | 'payment'>('attendance');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Edit State
@@ -20,18 +26,52 @@ export const WorkerDetails = () => {
   const worker = users.find(u => u.id === id);
   
   if (!worker) {
-    return <div className="p-10 text-center text-slate-500 font-bold">কর্মী পাওয়া যায়নি</div>;
+    return <div className="p-10 text-center text-slate-500 font-bold mt-10">কর্মী পাওয়া যায়নি</div>;
   }
+
+  // Determine Role & Theme (Hardcoded classes for stability)
+  const isSupervisorProfile = worker.role === 'supervisor';
+  
+  const theme = isSupervisorProfile ? {
+      gradient: 'from-purple-700 via-indigo-800 to-slate-900',
+      cardGradient: 'bg-gradient-to-r from-purple-700 to-indigo-700',
+      primaryColor: 'text-purple-600',
+      primaryBg: 'bg-purple-50',
+      lightBg: 'bg-purple-50 dark:bg-purple-900/20',
+      text: 'text-purple-600 dark:text-purple-400',
+      border: 'border-purple-200 dark:border-purple-800',
+      icon: UserCog,
+      // Input & Button Classes
+      inputFocus: 'focus:border-purple-500',
+      btnBg: 'bg-purple-600 hover:bg-purple-700',
+      btnShadow: 'shadow-purple-200',
+      editIconBg: 'bg-purple-100',
+      editIconColor: 'text-purple-600',
+      shadowColor: 'shadow-purple-900/20'
+  } : {
+      gradient: 'from-blue-700 via-slate-800 to-slate-900',
+      cardGradient: 'bg-gradient-to-r from-blue-700 to-slate-700',
+      primaryColor: 'text-blue-600',
+      primaryBg: 'bg-blue-50',
+      lightBg: 'bg-blue-50 dark:bg-blue-900/20',
+      text: 'text-blue-600 dark:text-blue-400',
+      border: 'border-blue-200 dark:border-blue-800',
+      icon: HardHat,
+      // Input & Button Classes
+      inputFocus: 'focus:border-blue-500',
+      btnBg: 'bg-blue-600 hover:bg-blue-700',
+      btnShadow: 'shadow-blue-200',
+      editIconBg: 'bg-blue-100',
+      editIconColor: 'text-blue-600',
+      shadowColor: 'shadow-blue-900/20'
+  };
 
   // Calculate Stats
   const workerAttendance = attendance.filter(a => a.worker_id === id);
   const workerPayments = transactions.filter(t => t.related_user_id === id && t.type === 'salary');
   
-  const totalDays = workerAttendance.filter(a => a.status === 'P' || a.status === 'H').length;
   const totalEarned = workerAttendance.reduce((sum, a) => sum + a.amount, 0);
   const totalPaid = workerPayments.reduce((sum, t) => sum + t.amount, 0);
-
-  const isSupervisor = worker.role === 'supervisor';
 
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,11 +80,9 @@ export const WorkerDetails = () => {
       await payWorker(worker.id, amount);
       setIsPayModalOpen(false);
       
-      // SMS Logic (Native Intent)
       const newBalance = worker.balance - amount;
       const message = `Project Khata: পেমেন্ট রিসিভড ৳${amount}। বর্তমান বকেয়া: ৳${newBalance}। ধন্যবাদ।`;
       
-      // Check if user wants to send SMS
       if(window.confirm("পেমেন্ট সফল! আপনি কি কর্মীকে SMS কনফার্মেশন পাঠাতে চান?")) {
          const smsLink = `sms:${worker.phone}?body=${encodeURIComponent(message)}`;
          window.location.href = smsLink;
@@ -70,24 +108,73 @@ export const WorkerDetails = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 300;
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
-          canvas.height = img.height * scaleSize;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          setFormData(prev => ({ ...prev, avatar_url: dataUrl }));
-        };
-        img.src = event.target?.result as string;
+      setIsProcessingImage(true);
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+          try {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 500;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              
+              canvas.toBlob(async (blob) => {
+                  if (blob) {
+                      const fileName = `avatars/${worker.id}-${Date.now()}.jpg`;
+                      
+                      try {
+                          const { data, error } = await supabase.storage
+                              .from('images')
+                              .upload(fileName, blob, {
+                                  contentType: 'image/jpeg',
+                                  upsert: true
+                              });
+
+                          if (error) throw error;
+
+                          const { data: publicData } = supabase.storage
+                              .from('images')
+                              .getPublicUrl(fileName);
+
+                          setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
+                          toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
+                      } catch (uploadError) {
+                          console.warn("Storage upload failed, falling back to Base64:", uploadError);
+                          // Fallback to Base64
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                              const base64String = reader.result as string;
+                              setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                              toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
+                          };
+                          reader.readAsDataURL(blob);
+                      } finally {
+                          setIsProcessingImage(false);
+                      }
+                  }
+              }, 'image/jpeg', 0.8);
+
+          } catch (error: any) {
+              console.error(error);
+              toast.error('ছবি আপলোডে সমস্যা', error.message);
+              setIsProcessingImage(false);
+          }
       };
-      reader.readAsDataURL(file);
+      img.src = objectUrl;
     }
+    
+    if (e.target) e.target.value = '';
   };
 
   const handleSaveEdit = (e: React.FormEvent) => {
@@ -97,125 +184,176 @@ export const WorkerDetails = () => {
     setIsEditModalOpen(false);
   };
 
+  const inputClass = `w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none ${theme.inputFocus} text-sm font-bold text-slate-900 dark:text-white transition-all shadow-sm`;
+  const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase ml-1";
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 font-sans">
        
-       {/* Header Design */}
-       <div className={`relative h-48 ${isSupervisor ? 'bg-gradient-to-r from-purple-600 to-indigo-700' : 'bg-gradient-to-r from-emerald-600 to-teal-700'}`}>
-          <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/diagonal-stripes.png')]"></div>
+       {/* Premium Header Design */}
+       <div className={`relative h-64 bg-gradient-to-br ${theme.gradient} overflow-hidden`}>
+          {/* Abstract Texture */}
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+          <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white opacity-10 rounded-full blur-[80px]"></div>
           
           <div className="flex items-center justify-between p-4 relative z-10 text-white">
-             <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+             <button onClick={() => navigate(-1)} className="p-3 hover:bg-white/20 rounded-full transition-colors backdrop-blur-md">
                 <ArrowLeft size={22} />
              </button>
-             <button onClick={openEditModal} className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+             <h1 className="text-sm font-bold uppercase tracking-widest opacity-80">
+                {isSupervisorProfile ? 'সাইট সুপারভাইজার' : 'সাইট শ্রমিক'}
+             </h1>
+             <button onClick={openEditModal} className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors backdrop-blur-md shadow-sm border border-white/10">
                 <Edit2 size={20} />
              </button>
           </div>
        </div>
 
-       {/* Profile Details Card */}
-       <div className="px-4 -mt-20 relative z-10">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-lg border border-slate-100 dark:border-slate-800 p-6 text-center">
-             <img 
-               src={worker.avatar_url || "https://picsum.photos/100"} 
-               className="w-24 h-24 rounded-full border-4 border-white dark:border-slate-800 shadow-md bg-slate-200 mx-auto -mt-16 object-cover" 
-             />
+       {/* Floating Profile Card - Fixed Clipping Issue */}
+       <div className="px-4 -mt-32 relative z-10">
+          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 p-6 pt-0 text-center relative flex flex-col items-center">
              
-             <h2 className="text-xl font-bold text-slate-800 dark:text-white mt-3">{worker.full_name}</h2>
-             <div className="flex items-center justify-center gap-2 mt-1">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${isSupervisor ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                   {isSupervisor ? worker.designation : worker.skill_type}
+             {/* Profile Pic - Positioned Absolutely to avoid clipping */}
+             <div className="relative -mt-16 mb-3">
+               <div className={`absolute -inset-1 bg-gradient-to-b ${isSupervisorProfile ? 'from-purple-500 to-indigo-500' : 'from-blue-500 to-slate-500'} rounded-full blur-sm opacity-50`}></div>
+               <img 
+                  src={worker.avatar_url || "https://picsum.photos/100"} 
+                  className="relative w-32 h-32 rounded-full border-[6px] border-white dark:border-slate-900 shadow-2xl bg-slate-200 object-cover" 
+                  alt="Profile"
+               />
+               <div className={`absolute bottom-1 right-1 p-1.5 rounded-full border-4 border-white dark:border-slate-900 ${isSupervisorProfile ? 'bg-purple-600' : 'bg-blue-600'} text-white shadow-sm`}>
+                  <theme.icon size={16} />
+               </div>
+             </div>
+             
+             <h2 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight flex items-center gap-2">
+                {worker.full_name}
+                {worker.is_verified && <ShieldCheck size={20} className="text-blue-500"/>}
+             </h2>
+             
+             <div className="flex items-center justify-center gap-2 mt-2 mb-6">
+                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider border ${theme.lightBg} ${theme.text} ${theme.border}`}>
+                   {isSupervisorProfile ? worker.designation : worker.skill_type}
                 </span>
                 <span className="text-slate-300">•</span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
                    {worker.payment_type === 'monthly' ? `৳${worker.monthly_salary}/মাস` : `৳${worker.daily_rate}/দিন`}
                 </span>
              </div>
 
-             {/* Quick Actions */}
-             <div className="grid grid-cols-3 gap-3 mt-6">
-                <a href={`tel:${worker.phone}`} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                   <Phone size={20} className="text-blue-500" />
+             {/* Tactile Quick Actions */}
+             <div className="grid grid-cols-3 gap-3 w-full">
+                <a href={`tel:${worker.phone}`} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-slate-100 dark:border-slate-700 active:scale-95 group">
+                   <div className="p-2.5 bg-white dark:bg-slate-700 rounded-full text-blue-600 dark:text-blue-400 shadow-sm group-hover:scale-110 transition-transform">
+                      <Phone size={18} />
+                   </div>
                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">কল করুন</span>
                 </a>
-                <a href={`sms:${worker.phone}`} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                   <MessageSquare size={20} className="text-orange-500" />
+                <a href={`sms:${worker.phone}`} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all border border-slate-100 dark:border-slate-700 active:scale-95 group">
+                   <div className="p-2.5 bg-white dark:bg-slate-700 rounded-full text-orange-600 dark:text-orange-400 shadow-sm group-hover:scale-110 transition-transform">
+                      <MessageSquare size={18} />
+                   </div>
                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">মেসেজ</span>
                 </a>
-                <button onClick={() => setIsPayModalOpen(true)} className="flex flex-col items-center gap-1 p-3 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                   <Wallet size={20} className="text-emerald-500" />
+                <button onClick={() => setIsPayModalOpen(true)} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all border border-slate-100 dark:border-slate-700 active:scale-95 group">
+                   <div className="p-2.5 bg-white dark:bg-slate-700 rounded-full text-emerald-600 dark:text-emerald-400 shadow-sm group-hover:scale-110 transition-transform">
+                      <Wallet size={18} />
+                   </div>
                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">পেমেন্ট</span>
                 </button>
              </div>
           </div>
        </div>
 
-       {/* Financial Stats */}
+       {/* Financial Stats - Premium Gradient Card */}
        <div className="px-4 mt-4">
-          <div className="bg-slate-900 dark:bg-slate-950 rounded-3xl p-5 text-white flex justify-between items-center shadow-lg shadow-slate-300 dark:shadow-none">
-             <div>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">বর্তমান বকেয়া</p>
-                <p className={`text-3xl font-bold ${worker.balance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>৳ {worker.balance.toLocaleString()}</p>
+          <div className={`${theme.cardGradient} rounded-[2.2rem] p-6 text-white flex justify-between items-center shadow-xl ${theme.shadowColor} dark:shadow-none relative overflow-hidden border border-white/10`}>
+             {/* Background Texture */}
+             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+             
+             {/* Neon Glow Effects */}
+             <div className={`absolute right-0 bottom-0 w-32 h-32 bg-white rounded-full blur-[60px] opacity-10 -mr-10 -mb-10`}></div>
+             
+             <div className="relative z-10">
+                <p className="text-xs font-bold text-white/80 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                   <Wallet size={14} className="text-white/80"/> বর্তমান বকেয়া
+                </p>
+                <p className={`text-4xl font-extrabold tracking-tight text-white`}>
+                   ৳ {worker.balance.toLocaleString()}
+                </p>
              </div>
+             
              <button 
                 onClick={() => setIsPayModalOpen(true)}
-                className="bg-white text-slate-900 px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors"
+                className="bg-white text-slate-900 px-5 py-3 rounded-xl text-xs font-bold hover:bg-slate-100 transition-colors shadow-lg relative z-10 active:scale-95"
              >
-                পরিশোধ
+                পরিশোধ করুন
              </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3 mt-3">
-             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">মোট আয়</p>
-                <p className="text-lg font-bold text-slate-800 dark:text-white">৳ {totalEarned.toLocaleString()}</p>
+             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center">
+                <div className={`${theme.primaryBg} dark:bg-slate-800 p-2 rounded-full ${theme.primaryColor} mb-2`}>
+                   <TrendingUp size={16} />
+                </div>
+                <p className="text-xl font-extrabold text-slate-800 dark:text-white">৳ {totalEarned.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">মোট আয়</p>
              </div>
-             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mb-1">মোট পরিশোধ</p>
-                <p className="text-lg font-bold text-emerald-600">৳ {totalPaid.toLocaleString()}</p>
+             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center text-center">
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-full text-emerald-600 mb-2">
+                   <CheckCircle size={16} />
+                </div>
+                <p className="text-xl font-extrabold text-emerald-600">৳ {totalPaid.toLocaleString()}</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">পরিশোধ</p>
              </div>
           </div>
        </div>
 
        {/* History Section with Tabs */}
        <div className="px-4 mt-6">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl mb-4">
+          <div className="flex bg-slate-200 dark:bg-slate-800 p-1.5 rounded-2xl mb-4 border border-slate-200 dark:border-slate-700">
             <button 
               onClick={() => setActiveHistoryTab('attendance')}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${activeHistoryTab === 'attendance' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeHistoryTab === 'attendance' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
             >
               হাজিরা ইতিহাস
             </button>
             <button 
               onClick={() => setActiveHistoryTab('payment')}
-              className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${activeHistoryTab === 'payment' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeHistoryTab === 'payment' ? 'bg-white dark:bg-slate-700 shadow text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
             >
               পেমেন্ট ইতিহাস
             </button>
           </div>
 
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+          <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm p-2 space-y-2">
              {activeHistoryTab === 'attendance' ? (
                 workerAttendance.length === 0 ? (
-                    <div className="p-8 text-center">
+                    <div className="p-10 text-center">
+                       <Clock size={32} className="mx-auto text-slate-300 mb-2"/>
                        <p className="text-slate-400 text-xs font-bold">কোন হাজিরা তথ্য নেই</p>
                     </div>
                  ) : (
-                    workerAttendance.slice().reverse().slice(0, 10).map((record, idx) => (
-                       <div key={record.id} className={`flex items-center justify-between p-4 ${idx !== workerAttendance.length - 1 ? 'border-b border-slate-50 dark:border-slate-800' : ''}`}>
-                          <div className="flex items-center gap-3">
-                             <div className="bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl text-slate-500 dark:text-slate-400 font-bold text-xs flex flex-col items-center min-w-[50px]">
-                                <span>{new Date(record.date).getDate()}</span>
-                                <span className="text-[8px] uppercase">{new Date(record.date).toLocaleDateString('en-US', {month: 'short'})}</span>
+                    workerAttendance.slice().reverse().slice(0, 10).map((record) => (
+                       <div key={record.id} className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800/50">
+                          <div className="flex items-center gap-4">
+                             <div className="bg-white dark:bg-slate-800 p-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-bold text-xs flex flex-col items-center min-w-[50px] shadow-sm border border-slate-100 dark:border-slate-700">
+                                <span className="text-base leading-none">{new Date(record.date).getDate()}</span>
+                                <span className="text-[8px] uppercase opacity-70">{new Date(record.date).toLocaleDateString('en-US', {month: 'short'})}</span>
                              </div>
                              <div>
-                                <p className="text-xs font-bold text-slate-800 dark:text-white mb-0.5">
-                                   {record.status === 'P' ? 'ফুল ডে' : 'হাফ ডে'}
+                                <p className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                   {record.status === 'P' 
+                                     ? <span className="text-green-600 flex items-center gap-1"><CheckCircle size={12}/> ফুল ডে</span> 
+                                     : <span className="text-amber-600 flex items-center gap-1"><Clock size={12}/> হাফ ডে</span>}
                                 </p>
-                                <p className="text-[10px] text-slate-400 font-medium">
-                                   {record.overtime ? `+ ${record.overtime} ঘণ্টা OT` : 'কোন OT নেই'}
-                                </p>
+                                {record.overtime && record.overtime > 0 ? (
+                                   <p className="text-[10px] text-purple-600 font-bold mt-0.5 bg-purple-50 inline-block px-2 py-0.5 rounded-md">
+                                      +{record.overtime} ঘণ্টা ওভারটাইম
+                                   </p>
+                                ) : (
+                                   <p className="text-[10px] text-slate-400 font-medium mt-0.5">রেগুলার শিফট</p>
+                                )}
                              </div>
                           </div>
                           <span className="font-bold text-sm text-slate-700 dark:text-slate-300">৳ {record.amount}</span>
@@ -224,22 +362,25 @@ export const WorkerDetails = () => {
                  )
              ) : (
                 workerPayments.length === 0 ? (
-                    <div className="p-8 text-center">
+                    <div className="p-10 text-center">
+                       <Wallet size={32} className="mx-auto text-slate-300 mb-2"/>
                        <p className="text-slate-400 text-xs font-bold">কোন পেমেন্ট রেকর্ড নেই</p>
                     </div>
                  ) : (
-                    workerPayments.slice().reverse().map((tx, idx) => (
-                       <div key={tx.id} className={`flex items-center justify-between p-4 ${idx !== workerPayments.length - 1 ? 'border-b border-slate-50 dark:border-slate-800' : ''}`}>
+                    workerPayments.slice().reverse().map((tx) => (
+                       <div key={tx.id} className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800/50">
                           <div className="flex items-center gap-3">
-                             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-2.5 rounded-xl text-emerald-600 dark:text-emerald-400">
-                                <Wallet size={18} />
+                             <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2.5 rounded-full text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-200 dark:border-emerald-800">
+                                <CheckCircle size={18} />
                              </div>
                              <div>
                                 <p className="text-xs font-bold text-slate-800 dark:text-white mb-0.5">{tx.description}</p>
-                                <p className="text-[10px] text-slate-400 font-medium">{tx.date}</p>
+                                <p className="text-[10px] text-slate-400 font-bold">{tx.date}</p>
                              </div>
                           </div>
-                          <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">৳ {tx.amount.toLocaleString()}</span>
+                          <span className="font-bold text-sm text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                             ৳ {tx.amount.toLocaleString()}
+                          </span>
                        </div>
                     ))
                  )
@@ -250,24 +391,25 @@ export const WorkerDetails = () => {
       {/* Payment Modal */}
       {isPayModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsPayModalOpen(false)}></div>
-           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm relative z-10 p-6 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsPayModalOpen(false)}></div>
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm relative z-10 p-8 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                   <Wallet className="text-emerald-600"/> পেমেন্ট করুন
+                   <div className="bg-emerald-100 p-2 rounded-full"><Wallet className="text-emerald-600" size={20}/></div>
+                   পেমেন্ট করুন
                 </h3>
-                <button onClick={() => setIsPayModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+                <button onClick={() => setIsPayModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
               </div>
 
-              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl mb-6 text-center border border-emerald-100 dark:border-emerald-900/30">
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl mb-6 text-center border border-emerald-100 dark:border-emerald-900/30">
                  <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">বর্তমান পাওনা</p>
-                 <p className="text-3xl font-bold text-slate-800 dark:text-white">৳ {worker.balance.toLocaleString()}</p>
+                 <p className="text-3xl font-extrabold text-slate-800 dark:text-white">৳ {worker.balance.toLocaleString()}</p>
               </div>
 
               <form onSubmit={handlePayment}>
-                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase">টাকার পরিমাণ</label>
+                 <label className={labelClass}>টাকার পরিমাণ</label>
                  <div className="relative mb-6">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl">৳</span>
+                    <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl">৳</span>
                     <input 
                       type="number" 
                       required
@@ -275,7 +417,7 @@ export const WorkerDetails = () => {
                       value={payAmount}
                       onChange={(e) => setPayAmount(e.target.value)}
                       placeholder="0"
-                      className="w-full pl-10 pr-4 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-emerald-500 text-2xl font-bold text-slate-900 dark:text-white placeholder-slate-300"
+                      className={`${inputClass} pl-10 text-2xl font-extrabold text-center`}
                     />
                  </div>
 
@@ -291,52 +433,66 @@ export const WorkerDetails = () => {
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)}></div>
-           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-sm relative z-10 p-6 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-slate-800">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm relative z-10 p-8 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                   <Edit2 size={18} className="text-blue-600"/> এডিট প্রোফাইল
+                   <div className={`${theme.editIconBg} p-2 rounded-full`}><Edit2 size={18} className={theme.editIconColor}/></div> 
+                   এডিট প্রোফাইল
                 </h3>
-                <button onClick={() => setIsEditModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+                <button onClick={() => setIsEditModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
               </div>
 
               <form onSubmit={handleSaveEdit} className="space-y-4">
-                 <div className="flex flex-col items-center mb-4">
+                 <div className="flex flex-col items-center mb-6">
                     <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                       <img src={formData.avatar_url} className="w-24 h-24 rounded-full border-4 border-slate-100 dark:border-slate-800 object-cover" alt="Profile" />
-                       <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                       <img 
+                         src={formData.avatar_url} 
+                         className="w-24 h-24 rounded-full border-[4px] border-slate-100 dark:border-slate-800 object-cover transition-opacity" 
+                         alt="Profile" 
+                         style={{ opacity: isProcessingImage ? 0.5 : 1 }}
+                       />
+                       <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
                           <Camera size={24} className="text-white" />
                        </div>
+                       
+                       {isProcessingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-blue-600" size={32} />
+                          </div>
+                       )}
+
                        <input 
                          type="file" 
                          ref={fileInputRef} 
                          className="hidden" 
-                         accept="image/*"
+                         accept="image/png, image/jpeg, image/jpg, image/webp"
                          onChange={handleImageUpload}
                        />
                     </div>
+                    <p className="text-[10px] text-blue-600 font-bold mt-2 uppercase tracking-wide bg-blue-50 px-3 py-1 rounded-full">ছবি পরিবর্তন</p>
                  </div>
 
                  <div>
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">নাম</label>
+                    <label className={labelClass}>নাম</label>
                     <div className="relative">
                        <User className="absolute left-4 top-3.5 text-slate-400" size={18} />
                        <input 
                          value={formData.full_name}
                          onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                         className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white"
+                         className={`${inputClass} pl-11`}
                          required
                        />
                     </div>
                  </div>
 
                  <div>
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">মোবাইল</label>
+                    <label className={labelClass}>মোবাইল</label>
                     <div className="relative">
                        <Phone className="absolute left-4 top-3.5 text-slate-400" size={18} />
                        <input 
                          value={formData.phone}
                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                         className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white"
+                         className={`${inputClass} pl-11`}
                          required
                        />
                     </div>
@@ -344,20 +500,20 @@ export const WorkerDetails = () => {
 
                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">পদবী</label>
+                       <label className={labelClass}>পদবী</label>
                        <div className="relative">
                           <Briefcase className="absolute left-3 top-3.5 text-slate-400" size={16} />
-                          {isSupervisor ? (
+                          {worker.role === 'supervisor' ? (
                              <input 
                                value={formData.designation}
                                onChange={(e) => setFormData({...formData, designation: e.target.value})}
-                               className="w-full pl-9 pr-2 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white"
+                               className={`${inputClass} pl-9`}
                              />
                           ) : (
                              <select 
                                value={formData.skill_type}
                                onChange={(e) => setFormData({...formData, skill_type: e.target.value})}
-                               className="w-full pl-9 pr-2 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white appearance-none"
+                               className={`${inputClass} pl-9 appearance-none`}
                              >
                                <option value="রাজমিস্ত্রি">রাজমিস্ত্রি</option>
                                <option value="রডমিস্ত্রি">রডমিস্ত্রি</option>
@@ -369,14 +525,14 @@ export const WorkerDetails = () => {
                        </div>
                     </div>
                     <div>
-                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase">{isSupervisor && worker.payment_type === 'monthly' ? 'বেতন (মাস)' : 'রেট (দিন)'}</label>
+                       <label className={labelClass}>{worker.role === 'supervisor' && worker.payment_type === 'monthly' ? 'বেতন (মাস)' : 'রেট (দিন)'}</label>
                        <div className="relative">
                           <DollarSign className="absolute left-3 top-3.5 text-slate-400" size={16} />
                           <input 
                             type="number"
-                            value={isSupervisor && worker.payment_type === 'monthly' ? formData.monthly_salary : formData.daily_rate}
-                            onChange={(e) => isSupervisor && worker.payment_type === 'monthly' ? setFormData({...formData, monthly_salary: Number(e.target.value)}) : setFormData({...formData, daily_rate: Number(e.target.value)})}
-                            className="w-full pl-9 pr-2 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white"
+                            value={worker.role === 'supervisor' && worker.payment_type === 'monthly' ? formData.monthly_salary : formData.daily_rate}
+                            onChange={(e) => worker.role === 'supervisor' && worker.payment_type === 'monthly' ? setFormData({...formData, monthly_salary: Number(e.target.value)}) : setFormData({...formData, daily_rate: Number(e.target.value)})}
+                            className={`${inputClass} pl-9`}
                             required
                           />
                        </div>
@@ -385,9 +541,10 @@ export const WorkerDetails = () => {
 
                  <button 
                    type="submit" 
-                   className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
+                   disabled={isProcessingImage}
+                   className={`w-full py-4 ${theme.btnBg} text-white rounded-2xl font-bold shadow-lg ${theme.btnShadow} dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed`}
                  >
-                    <CheckCircle size={18} />
+                    {isProcessingImage ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
                     আপডেট করুন
                  </button>
               </form>

@@ -1,16 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
-import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2, Download, ShieldCheck, MapPin } from 'lucide-react';
+import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2, Download, ShieldCheck, MapPin, Loader2 } from 'lucide-react';
 import { Profile } from '../types';
 import QRCode from 'react-qr-code';
+import { useToast } from '../context/ToastContext';
+import { supabase } from '../supabaseClient';
 
 export const WorkerProfile = () => {
   const { user, setUser } = useAuth();
   const { updateUser, users, attendance } = useData();
+  const { toast } = useToast();
   const [showIdCard, setShowIdCard] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [zoomQr, setZoomQr] = useState(false); 
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<Partial<Profile>>({});
 
@@ -39,24 +43,76 @@ export const WorkerProfile = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX_WIDTH = 300;
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
-          canvas.height = img.height * scaleSize;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          setFormData(prev => ({ ...prev, avatar_url: dataUrl }));
-        };
-        img.src = event.target?.result as string;
+      setIsProcessingImage(true);
+      
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      
+      img.onload = () => {
+          try {
+              const canvas = document.createElement('canvas');
+              const MAX_WIDTH = 500;
+              let width = img.width;
+              let height = img.height;
+
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              ctx?.drawImage(img, 0, 0, width, height);
+              
+              canvas.toBlob(async (blob) => {
+                  if (blob) {
+                      const fileName = `avatars/${user.id}-${Date.now()}.jpg`;
+                      
+                      try {
+                          const { data, error } = await supabase.storage
+                              .from('images')
+                              .upload(fileName, blob, {
+                                  contentType: 'image/jpeg',
+                                  upsert: true
+                              });
+
+                          if (error) throw error;
+
+                          const { data: publicData } = supabase.storage
+                              .from('images')
+                              .getPublicUrl(fileName);
+
+                          setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
+                          toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
+                      } catch (uploadError) {
+                          console.warn("Storage upload failed, falling back to Base64:", uploadError);
+                          
+                          // Fallback to Base64
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                              const base64String = reader.result as string;
+                              setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                              toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
+                          };
+                          reader.readAsDataURL(blob);
+                      } finally {
+                          setIsProcessingImage(false);
+                      }
+                  }
+              }, 'image/jpeg', 0.8);
+
+          } catch (error: any) {
+              console.error(error);
+              toast.error('ছবি আপলোডে সমস্যা', error.message);
+              setIsProcessingImage(false);
+          }
       };
-      reader.readAsDataURL(file);
+      img.src = objectUrl;
     }
+    
+    // Allow re-selecting same file
+    if (e.target) e.target.value = '';
   };
 
   const saveProfile = (e: React.FormEvent) => {
@@ -284,15 +340,27 @@ export const WorkerProfile = () => {
              <form onSubmit={saveProfile} className="space-y-6">
                 <div className="flex flex-col items-center mb-6">
                    <div className="relative group" onClick={() => fileInputRef.current?.click()}>
-                      <img src={formData.avatar_url} className="w-28 h-28 rounded-full border-4 border-slate-100 dark:border-slate-800 object-cover shadow-sm" alt="Profile" />
+                      <img 
+                        src={formData.avatar_url} 
+                        className="w-28 h-28 rounded-full border-4 border-slate-100 dark:border-slate-800 object-cover shadow-sm transition-opacity" 
+                        alt="Profile" 
+                        style={{ opacity: isProcessingImage ? 0.5 : 1 }}
+                      />
                       <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
                          <Camera size={32} className="text-white" />
                       </div>
+                      
+                      {isProcessingImage && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                              <Loader2 className="animate-spin text-blue-600" size={32} />
+                          </div>
+                      )}
+
                       <input 
                         type="file" 
                         ref={fileInputRef} 
                         className="hidden" 
-                        accept="image/*"
+                        accept="image/png, image/jpeg, image/jpg, image/webp"
                         onChange={handleImageUpload}
                       />
                    </div>
@@ -322,9 +390,10 @@ export const WorkerProfile = () => {
 
                 <button 
                   type="submit" 
-                  className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 active:scale-95 transition-all text-base ${isSupervisor ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-200 dark:shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'}`}
+                  disabled={isProcessingImage}
+                  className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 active:scale-95 transition-all text-base disabled:opacity-70 disabled:cursor-not-allowed ${isSupervisor ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-200 dark:shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'}`}
                 >
-                   <CheckCircle size={20} />
+                   {isProcessingImage ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
                    সেভ করুন
                 </button>
              </form>

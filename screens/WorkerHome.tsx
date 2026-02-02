@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
@@ -7,7 +7,7 @@ import { Bell, FileText, Calculator, X, Send, Save, CheckCircle, Calendar, MapPi
 
 export const WorkerHome = () => {
   const { user } = useAuth();
-  const { attendance, sendNotification, users, projects, workReports, submitAttendanceRequest, submitAdvanceRequest, t, notifications, publicNotices, materialLogs } = useData();
+  const { attendance, sendNotification, users, projects, workReports, submitAttendanceRequest, submitAdvanceRequest, t, notifications, publicNotices, materialLogs, updateUserLocation, isLoadingData } = useData();
   const { toast } = useToast();
   const location = useLocation();
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export const WorkerHome = () => {
   }, []);
 
   const timeString = time.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
-  const dateString = time.toLocaleDateString('bn-BD', { weekday: 'short', day: 'numeric', month: 'long' }); // Short weekday for mobile
+  const dateString = time.toLocaleDateString('bn-BD', { weekday: 'short', day: 'numeric', month: 'long' });
 
   // Modal States
   const [activeModal, setActiveModal] = useState<'leave' | 'calc' | 'note' | 'attendance' | 'advance' | null>(null);
@@ -45,6 +45,9 @@ export const WorkerHome = () => {
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
 
+  // Automatic Tracking Ref
+  const watchIdRef = useRef<number | null>(null);
+
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
@@ -52,7 +55,6 @@ export const WorkerHome = () => {
       const savedNote = localStorage.getItem(`worker_note_${user.id}`);
       if (savedNote) setMyNote(savedNote);
 
-      // Check local storage for pending request for TODAY
       const lastReqDate = localStorage.getItem(`pk_att_req_${user.id}`);
       if (lastReqDate === today) {
           setHasPendingRequest(true);
@@ -61,6 +63,37 @@ export const WorkerHome = () => {
       }
     }
   }, [user, today]);
+
+  // Automatic Tracking Effect (Starts on Mount)
+  useEffect(() => {
+      if (!navigator.geolocation) {
+          console.warn('Geolocation is not supported by this browser.');
+          return;
+      }
+
+      // Start watching position automatically
+      watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+              // Successfully got location - update DB
+              updateUserLocation(pos.coords.latitude, pos.coords.longitude, true);
+          },
+          (err) => {
+              console.error("Auto tracking error:", err);
+              // Silent fail or minimal toast, we don't want to annoy user if GPS is off
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+
+      // Cleanup on unmount
+      return () => {
+          if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+              // Mark as inactive when leaving the screen/app
+              if(user) updateUserLocation(0, 0, false);
+          }
+      };
+  }, []);
 
   useEffect(() => {
     if (location.state && (location.state as any).openAttendanceModal) {
@@ -75,17 +108,15 @@ export const WorkerHome = () => {
   
   const myAttendance = attendance
     .filter(a => a.worker_id === user.id)
-    .sort((a,b) => b.date.localeCompare(a.date)); // Sort by date desc
+    .sort((a,b) => b.date.localeCompare(a.date));
 
   const totalDays = myAttendance.filter(a => a.status === 'P' || a.status === 'H').length;
   const totalEarned = myAttendance.reduce((sum, a) => sum + a.amount, 0);
   const totalOtHours = myAttendance.reduce((sum, a) => sum + (a.overtime || 0), 0);
 
-  // Check Actual Attendance Record (Approved)
   const todaysRecord = myAttendance.find(a => a.date === today);
   const isPresentToday = !!todaysRecord;
 
-  // Determine Current Project Name (if present)
   const currentProjectName = todaysRecord 
     ? projects.find(p => p.id === todaysRecord.project_id)?.project_name 
     : '';
@@ -93,14 +124,10 @@ export const WorkerHome = () => {
   const hourlyRate = (user.daily_rate || 0) / 8;
   const calculatedOtAmount = otHours ? Math.round(Number(otHours) * hourlyRate) : 0;
 
-  // Recent 2 Activities
   const recentActivities = myAttendance.slice(0, 3);
 
-  // --- SMART PUBLIC FEED GENERATION ---
   const feedItems = useMemo(() => {
      let items: any[] = [];
-
-     // 0. Public Notices
      const recentNotices = publicNotices.sort((a,b) => b.created_at.localeCompare(a.created_at)).slice(0, 3);
      recentNotices.forEach(notice => {
          items.push({
@@ -115,7 +142,6 @@ export const WorkerHome = () => {
          });
      });
 
-     // 1. Site Activity
      const activeProjects = projects.filter(p => p.status === 'active');
      activeProjects.forEach(p => {
         const workerCount = attendance.filter(a => a.project_id === p.id && a.date === today && (a.status === 'P' || a.status === 'H')).length;
@@ -133,7 +159,6 @@ export const WorkerHome = () => {
         }
      });
 
-     // 2. Personal Welcome / Status
      if (isPresentToday) {
         items.push({
            id: 'status-present',
@@ -147,7 +172,6 @@ export const WorkerHome = () => {
         });
      }
 
-     // Default
      if (items.length === 0) {
         items.push({
            id: 'default',
@@ -164,7 +188,6 @@ export const WorkerHome = () => {
      return items;
   }, [projects, attendance, publicNotices, today, isPresentToday, currentProjectName]);
 
-  // Auto-Rotate Logic
   useEffect(() => {
     if (feedItems.length <= 1 || isPaused) return;
     const interval = setInterval(() => {
@@ -175,7 +198,6 @@ export const WorkerHome = () => {
 
   const currentItem = feedItems[currentFeedIndex] || feedItems[0];
 
-  // --- Handlers ---
   const handleMessageOwner = () => {
     if (contractor) {
       window.location.href = `tel:${contractor.phone}`;
@@ -235,16 +257,48 @@ export const WorkerHome = () => {
       return p ? p.project_name : 'অজানা প্রজেক্ট';
   };
 
-  // Consistent Input Styles
   const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 transition-all shadow-sm";
   const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wide ml-1";
+
+  // --- SKELETON COMPONENT ---
+  const WorkerHomeSkeleton = () => (
+    <div className="space-y-4 animate-pulse">
+        {/* Balance Card Skeleton */}
+        <div className="h-40 rounded-[1.8rem] bg-slate-200 dark:bg-slate-800 w-full mb-4"></div>
+        
+        {/* Stats Grid Skeleton */}
+        <div className="grid grid-cols-3 gap-2.5">
+            {[...Array(3)].map((_, i) => (
+                <div key={i} className="h-20 bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
+            ))}
+        </div>
+
+        {/* Tools Skeleton */}
+        <div>
+            <div className="h-4 w-20 bg-slate-200 dark:bg-slate-800 rounded-full mb-3"></div>
+            <div className="grid grid-cols-3 gap-2.5">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-24 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                ))}
+            </div>
+        </div>
+
+        {/* List Skeleton */}
+        <div>
+            <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-full mb-3"></div>
+            <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-16 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+                ))}
+            </div>
+        </div>
+    </div>
+  );
 
   return (
     <div className="pb-24 relative bg-slate-50 dark:bg-slate-950 min-h-screen font-sans selection:bg-emerald-100">
       
-      {/* Compact Header Section - Mobile Optimized */}
       <div className="bg-white dark:bg-slate-900 px-4 pt-3 pb-5 rounded-b-[2rem] shadow-sm border-b border-slate-100 dark:border-slate-800 mb-3 relative overflow-hidden">
-         {/* Background Decor (Subtle) */}
          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-600/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
          
          <div className="flex justify-between items-center mb-4 relative z-10">
@@ -252,18 +306,21 @@ export const WorkerHome = () => {
                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1">
                   <Sun size={10} className="text-orange-400" /> {greeting}
                </p>
-               {/* Worker Skill Type as Title (No Name) */}
                <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight mt-0.5">
                   {user.skill_type || 'কর্মী'}
                </h1>
             </div>
-            <div className="text-right bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
-                <p className="text-[10px] font-bold text-slate-400 uppercase">{dateString}</p>
-                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono leading-none mt-0.5">{timeString}</p>
+            
+            {/* Auto Tracking Indicator (Visual Only) */}
+            <div className="flex flex-col items-end">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold bg-slate-50 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                   <span className="opacity-80">লাইভ ট্র্যাকিং</span>
+                </div>
+                {isLoadingData && <p className="text-[9px] text-slate-400 animate-pulse flex items-center gap-1"><Loader2 size={8} className="animate-spin"/> Syncing...</p>}
             </div>
          </div>
 
-         {/* --- SMART PUBLIC FEED (Compact) --- */}
          <div 
             className={`w-full relative overflow-hidden rounded-xl border ${currentItem.border} ${currentItem.bg} transition-all duration-500`}
             onMouseEnter={() => setIsPaused(true)}
@@ -271,7 +328,6 @@ export const WorkerHome = () => {
             onTouchStart={() => setIsPaused(true)}
             onTouchEnd={() => setIsPaused(false)}
          >
-            {/* Progress Bar */}
             {feedItems.length > 1 && (
                <div className="absolute top-0 left-0 w-full h-0.5 bg-black/5 dark:bg-white/5">
                   <div 
@@ -306,128 +362,128 @@ export const WorkerHome = () => {
 
       <div className="px-4 space-y-4">
          
-         {/* Balance Card - Mobile Compact */}
-         <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-[1.8rem] p-5 text-white shadow-lg shadow-emerald-500/10 dark:shadow-none relative overflow-hidden group">
-            {/* Texture Overlay */}
-            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-            
-            <div className="relative z-10">
-               <div className="flex justify-between items-start mb-4">
-                  <div>
-                     <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
-                        <Wallet size={10} /> {t('current_due')}
-                     </p>
-                     <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</h1>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-inner">
-                     <ShieldCheck size={20} className="text-white" />
-                  </div>
-               </div>
-
-               <div className="flex gap-2.5">
-                  <button 
-                     onClick={() => setActiveModal('advance')}
-                     className="flex-1 bg-white text-teal-800 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 hover:bg-emerald-50 active:scale-95 transition-all"
-                  >
-                     <Coins size={14} /> {t('request_advance')}
-                  </button>
-                  <button 
-                     onClick={handleMessageOwner}
-                     className="flex-1 bg-black/20 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 hover:bg-black/30 border border-white/10 active:scale-95 transition-all backdrop-blur-sm"
-                  >
-                     <Phone size={14} /> ঠিকাদার
-                  </button>
-               </div>
-            </div>
-         </div>
-
-         {/* Quick Stats Grid - Compact */}
-         <div className="grid grid-cols-3 gap-2.5">
-            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm text-center">
-               <p className="text-xl font-bold text-slate-800 dark:text-white">{totalDays}</p>
-               <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">মোট দিন</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm text-center">
-               <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(totalEarned/1000)}k</p>
-               <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">মোট আয়</p>
-            </div>
-            <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm text-center">
-               <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{totalOtHours}</p>
-               <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">ঘণ্টা OT</p>
-            </div>
-         </div>
-
-         {/* Tools Section - Mobile Optimized */}
-         <div>
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-xs uppercase tracking-wider flex items-center gap-2">
-               <div className="w-1 h-3 bg-emerald-500 rounded-full"></div> টুলস
-            </h3>
-            <div className="grid grid-cols-3 gap-2.5">
-               {[
-                  { icon: FileText, label: 'ছুটি', sub: 'আবেদন', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', action: () => setActiveModal('leave') },
-                  { icon: Calculator, label: 'OT', sub: 'হিসাব', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', action: () => setActiveModal('calc') },
-                  { icon: StickyNote, label: 'নোট', sub: 'খাতা', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20', action: () => setActiveModal('note') },
-               ].map((item, idx) => (
-                  <button 
-                     key={idx} 
-                     onClick={item.action}
-                     className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
-                  >
-                     <div className={`${item.bg} p-2.5 rounded-full ${item.color} shadow-sm`}>
-                        <item.icon size={18} strokeWidth={2.5} />
-                     </div>
-                     <div className="text-center leading-none">
-                        <p className="font-bold text-slate-700 dark:text-white text-[11px]">{item.label}</p>
-                     </div>
-                  </button>
-               ))}
-            </div>
-         </div>
-
-         {/* Recent Activity Mini List (New) */}
-         <div>
-            <div className="flex justify-between items-center mb-3 px-1">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
-                   <div className="w-1 h-3 bg-blue-500 rounded-full"></div> সাম্প্রতিক কাজ
-                </h3>
-                <button 
-                   onClick={() => navigate('/history')}
-                   className="text-[10px] text-blue-600 font-bold flex items-center gap-1"
-                >
-                   সব দেখুন <ChevronRight size={10} />
-                </button>
-            </div>
-            
-            <div className="space-y-2">
-               {recentActivities.length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 p-4 rounded-xl text-center border border-dashed border-slate-200 dark:border-slate-800">
-                     <p className="text-xs text-slate-400 font-bold">কোন সাম্প্রতিক কাজ নেই</p>
-                  </div>
-               ) : (
-                  recentActivities.map((act) => (
-                     <div key={act.id} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                           <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg text-slate-500 font-bold text-[10px] text-center min-w-[40px]">
-                              <span className="block">{new Date(act.date).getDate()}</span>
-                              <span className="block text-[8px] uppercase">{new Date(act.date).toLocaleDateString('en-US', {month: 'short'})}</span>
-                           </div>
-                           <div>
-                              <p className="font-bold text-slate-800 dark:text-white text-xs truncate max-w-[150px]">{getProjectName(act.project_id)}</p>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                 {act.status === 'P' ? 'ফুল ডে' : 'হাফ ডে'} {act.overtime ? `+ ${act.overtime}h OT` : ''}
-                              </p>
-                           </div>
+         {isLoadingData ? (
+            <WorkerHomeSkeleton />
+         ) : (
+            <>
+                <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 rounded-[1.8rem] p-5 text-white shadow-lg shadow-emerald-500/10 dark:shadow-none relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                    
+                    <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                        <div>
+                            <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
+                                <Wallet size={10} /> {t('current_due')}
+                            </p>
+                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</p>
                         </div>
-                        <span className="font-bold text-slate-700 dark:text-slate-300 text-xs">৳{act.amount}</span>
-                     </div>
-                  ))
-               )}
-            </div>
-         </div>
+                        <div className="bg-white/20 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-inner">
+                            <ShieldCheck size={20} className="text-white" />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2.5">
+                        <button 
+                            onClick={() => setActiveModal('advance')}
+                            className="flex-1 bg-white text-teal-800 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 hover:bg-emerald-50 active:scale-95 transition-all"
+                        >
+                            <Coins size={14} /> {t('request_advance')}
+                        </button>
+                        <button 
+                            onClick={handleMessageOwner}
+                            className="flex-1 bg-black/20 text-white py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 hover:bg-black/30 border border-white/10 active:scale-95 transition-all backdrop-blur-sm"
+                        >
+                            <Phone size={14} /> ঠিকাদার
+                        </button>
+                    </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5">
+                    <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm text-center">
+                    <p className="text-xl font-bold text-slate-800 dark:text-white">{totalDays}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">মোট দিন</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm text-center">
+                    <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(totalEarned/1000)}k</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">মোট আয়</p>
+                    </div>
+                    <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm text-center">
+                    <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{totalOtHours}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">ঘণ্টা OT</p>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 text-xs uppercase tracking-wider flex items-center gap-2">
+                    <div className="w-1 h-3 bg-emerald-500 rounded-full"></div> টুলস
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2.5">
+                    {[
+                        { icon: FileText, label: 'ছুটি', sub: 'আবেদন', color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20', action: () => setActiveModal('leave') },
+                        { icon: Calculator, label: 'OT', sub: 'হিসাব', color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20', action: () => setActiveModal('calc') },
+                        { icon: StickyNote, label: 'নোট', sub: 'খাতা', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20', action: () => setActiveModal('note') },
+                    ].map((item, idx) => (
+                        <button 
+                            key={idx} 
+                            onClick={item.action}
+                            className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center gap-2 active:scale-95 transition-all group relative overflow-hidden"
+                        >
+                            <div className={`${item.bg} p-2.5 rounded-full ${item.color} shadow-sm`}>
+                                <item.icon size={18} strokeWidth={2.5} />
+                            </div>
+                            <div className="text-center leading-none">
+                                <p className="font-bold text-slate-700 dark:text-white text-[11px]">{item.label}</p>
+                            </div>
+                        </button>
+                    ))}
+                    </div>
+                </div>
+
+                <div>
+                    <div className="flex justify-between items-center mb-3 px-1">
+                        <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
+                        <div className="w-1 h-3 bg-blue-500 rounded-full"></div> সাম্প্রতিক কাজ
+                        </h3>
+                        <button 
+                        onClick={() => navigate('/history')}
+                        className="text-[10px] text-blue-600 font-bold flex items-center gap-1"
+                        >
+                        সব দেখুন <ChevronRight size={10} />
+                        </button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                    {recentActivities.length === 0 ? (
+                        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl text-center border border-dashed border-slate-200 dark:border-slate-800">
+                            <p className="text-xs text-slate-400 font-bold">কোন সাম্প্রতিক কাজ নেই</p>
+                        </div>
+                    ) : (
+                        recentActivities.map((act) => (
+                            <div key={act.id} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg text-slate-500 font-bold text-[10px] text-center min-w-[40px]">
+                                    <span className="block">{new Date(act.date).getDate()}</span>
+                                    <span className="block text-[8px] uppercase">{new Date(act.date).toLocaleDateString('en-US', {month: 'short'})}</span>
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-800 dark:text-white text-xs truncate max-w-[150px]">{getProjectName(act.project_id)}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                        {act.status === 'P' ? 'ফুল ডে' : 'হাফ ডে'} {act.overtime ? `+ ${act.overtime}h OT` : ''}
+                                    </p>
+                                </div>
+                                </div>
+                                <span className="font-bold text-slate-700 dark:text-slate-300 text-xs">৳{act.amount}</span>
+                            </div>
+                        ))
+                    )}
+                    </div>
+                </div>
+            </>
+         )}
       </div>
 
       {/* --- MODALS --- */}
-      
       {/* Attendance Modal */}
       {activeModal === 'attendance' && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
@@ -519,12 +575,10 @@ export const WorkerHome = () => {
          </div>
       )}
 
-      {/* Advance Modal */}
       {activeModal === 'advance' && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
             <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] relative z-10 p-8 shadow-2xl animate-scale-up border-t border-slate-100 dark:border-slate-800">
-               {/* ... (Existing Advance Modal Content with Emerald Theme) ... */}
                 <div className="flex justify-between items-center mb-8">
                   <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                      <div className="bg-teal-100 dark:bg-teal-900/30 p-2 rounded-xl text-teal-600">
@@ -582,7 +636,6 @@ export const WorkerHome = () => {
          </div>
       )}
 
-      {/* Leave Modal */}
       {activeModal === 'leave' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -640,7 +693,6 @@ export const WorkerHome = () => {
         </div>
       )}
 
-      {/* OT Calculator Modal (NEW) */}
       {activeModal === 'calc' && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -693,7 +745,6 @@ export const WorkerHome = () => {
          </div>
       )}
 
-      {/* Note Modal (NEW) */}
       {activeModal === 'note' && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
@@ -727,7 +778,6 @@ export const WorkerHome = () => {
          </div>
       )}
 
-      {/* Animation Styles */}
       <style>{`
         @keyframes slideUp {
           from { transform: translateY(100%); opacity: 0; }
