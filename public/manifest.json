@@ -1,29 +1,23 @@
 {
-  "name": "প্রজেক্ট খাতা",
+  "name": "প্রজেক্ট খাতা প্রো",
   "short_name": "প্রজেক্ট খাতা",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942838.png?v=2",
+      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942544.png?v=4",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942838.png?v=2",
+      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942544.png?v=4",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/2942/2942838.png?v=2",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ]
 }
