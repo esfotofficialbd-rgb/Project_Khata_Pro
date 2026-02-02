@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Profile } from '../types';
 import { supabase } from '../supabaseClient';
@@ -22,7 +23,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
   
-  const [loading, setLoading] = useState(true);
+  // Initialize loading based on cache presence. 
+  // If we have a cached user, we don't block the UI (optimistic UI).
+  const [loading, setLoading] = useState(() => {
+      return !localStorage.getItem('pk_user_profile');
+  });
+
+  // Failsafe: Force loading to false after 5 seconds to prevent infinite spinner
+  useEffect(() => {
+      if (loading) {
+          const timer = setTimeout(() => {
+              setLoading(false);
+          }, 5000);
+          return () => clearTimeout(timer);
+      }
+  }, [loading]);
 
   useEffect(() => {
     let mounted = true;
@@ -33,8 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (error || !session) {
             if (mounted) {
-                // Only clear if we really don't have a session to avoid flickering if caching exists
-                if (!session) {
+                // If cache exists but session is invalid, clear cache and logout
+                if (localStorage.getItem('pk_user_profile')) {
                     setUserState(null);
                     localStorage.removeItem('pk_user_profile');
                 }
@@ -44,8 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (session.user) {
-           // If we have a session, fetch fresh profile data
            await fetchProfile(session.user.id);
+        } else {
+           if (mounted) setLoading(false);
         }
       } catch (error) {
         console.error("Auth initialization error:", error);
@@ -67,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            setLoading(false);
         }
       } else if (event === 'INITIAL_SESSION') {
-        // Handle initial session load completion if fetchProfile hasn't run yet
+        // Just ensuring loading is false if nothing else triggered it
         if (!session && mounted) {
             setLoading(false);
         }
@@ -136,3 +152,4 @@ export const useAuth = () => {
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
+    
