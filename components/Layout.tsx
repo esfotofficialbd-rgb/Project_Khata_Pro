@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, ClipboardList, BookOpen, Calculator, PieChart, User, History, Bell, Menu, X, LogOut, Settings, Phone, Info, Users, CalendarClock, CheckCircle, Building2, ChevronRight, ShieldCheck, Wallet, PlayCircle, PlusCircle, Grid, Search } from 'lucide-react';
+import { Home, ClipboardList, BookOpen, Calculator, PieChart, User, History, Bell, Menu, X, LogOut, Settings, Phone, Info, Users, CalendarClock, CheckCircle, Building2, ChevronRight, ShieldCheck, Wallet, PlayCircle, PlusCircle, Grid, Search, Map } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -145,6 +145,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       ? 'bg-gradient-to-br from-emerald-800 via-teal-800 to-cyan-900' 
       : 'bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-800'; // Contractor Premium Blue/Slate
 
+  // Bell Icon Theme Logic
+  const bellIconClass = isSupervisor
+    ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100 shadow-purple-100'
+    : isWorker
+      ? 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 shadow-emerald-100'
+      : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 shadow-blue-100 dark:bg-slate-800 dark:text-blue-400 dark:border-slate-700';
+
   let statusColor = 'bg-red-500';
   if (isOnline) {
      if (realtimeStatus === 'SUBSCRIBED') statusColor = 'bg-emerald-500';
@@ -202,14 +209,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             
             {/* Right: Actions (Tactile Buttons) */}
             <div className="flex items-center gap-2.5">
-                 {/* Notification Bell - Tactile */}
+                 {/* Notification Bell - Themed & Detailed */}
                  <button 
                     onClick={() => navigate('/notifications')}
-                    className={`relative w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-90 border-b-2 active:border-b-0 active:translate-y-0.5
-                      ${isSupervisor 
-                        ? 'bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300'}
-                    `}
+                    className={`relative w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-90 border-b-2 active:border-b-0 active:translate-y-0.5 shadow-sm ${bellIconClass}`}
                  >
                     <Bell size={20} strokeWidth={2.5} />
                     {unreadCount > 0 && (
@@ -223,7 +226,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all active:scale-90 border-b-2 active:border-b-0 active:translate-y-0.5 shadow-sm
                       ${isSupervisor 
                         ? 'bg-purple-600 text-white border-purple-800 shadow-purple-200' 
-                        : 'bg-blue-600 text-white border-blue-800 shadow-blue-200 dark:bg-blue-700 dark:border-blue-900'}
+                        : isWorker 
+                          ? 'bg-emerald-600 text-white border-emerald-800 shadow-emerald-200'
+                          : 'bg-blue-600 text-white border-blue-800 shadow-blue-200 dark:bg-blue-700 dark:border-blue-900'}
                     `}
                  >
                     <Grid size={20} strokeWidth={2.5} />
