@@ -1,8 +1,51 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
 import { Building2, User, Mail, Phone, Lock, ArrowLeft, Eye, EyeOff, AlertTriangle, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+
+interface InputFieldProps {
+  label: string;
+  icon: any;
+  name: string;
+  type?: string;
+  placeholder: string;
+  required?: boolean;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  showPassword?: boolean;
+  onTogglePassword?: () => void;
+}
+
+const InputField = ({ label, icon: Icon, name, type = "text", placeholder, required = true, value, onChange, showPassword, onTogglePassword }: InputFieldProps) => (
+    <div className="space-y-1.5">
+        <label className="text-xs font-bold text-slate-500 uppercase ml-1 block tracking-wider">{label}</label>
+        <div className="relative group">
+            <div className="absolute left-4 top-4 text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                <Icon size={20} />
+            </div>
+            <input
+                name={name}
+                type={type}
+                required={required}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-600/10 transition-all shadow-sm"
+            />
+            {name === 'password' && onTogglePassword && (
+                <button 
+                    type="button"
+                    onClick={onTogglePassword}
+                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+                >
+                    {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
+                </button>
+            )}
+        </div>
+    </div>
+);
 
 export const Register = () => {
   const navigate = useNavigate();
@@ -94,35 +137,6 @@ export const Register = () => {
     }
   };
 
-  const InputField = ({ label, icon: Icon, name, type = "text", placeholder, required = true }: any) => (
-    <div className="space-y-1.5">
-        <label className="text-xs font-bold text-slate-500 uppercase ml-1 block tracking-wider">{label}</label>
-        <div className="relative group">
-            <div className="absolute left-4 top-4 text-slate-400 group-focus-within:text-blue-600 transition-colors">
-                <Icon size={20} />
-            </div>
-            <input
-                name={name}
-                type={type}
-                required={required}
-                value={(formData as any)[name]}
-                onChange={handleChange}
-                placeholder={placeholder}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-600/10 transition-all shadow-sm"
-            />
-            {name === 'password' && (
-                <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
-                >
-                    {showPassword ? <EyeOff size={20}/> : <Eye size={20}/>}
-                </button>
-            )}
-        </div>
-    </div>
-  );
-
   return (
     <div className="h-screen bg-slate-50 relative font-sans flex flex-col overflow-hidden">
       
@@ -172,16 +186,50 @@ export const Register = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
-               <InputField label="আপনার নাম" icon={User} name="full_name" placeholder="পূর্ণ নাম লিখুন" />
-               <InputField label="প্রতিষ্ঠানের নাম" icon={Building2} name="company_name" placeholder="কোম্পানির নাম লিখুন" />
-               <InputField label="মোবাইল নাম্বার" icon={Phone} name="phone" type="tel" placeholder="017xxxxxxxx" />
-               <InputField label="ইমেইল এড্রেস" icon={Mail} name="email" type="email" placeholder="example@email.com" />
+               <InputField 
+                  label="আপনার নাম" 
+                  icon={User} 
+                  name="full_name" 
+                  placeholder="পূর্ণ নাম লিখুন" 
+                  value={formData.full_name}
+                  onChange={handleChange}
+               />
+               <InputField 
+                  label="প্রতিষ্ঠানের নাম" 
+                  icon={Building2} 
+                  name="company_name" 
+                  placeholder="কোম্পানির নাম লিখুন" 
+                  value={formData.company_name}
+                  onChange={handleChange}
+               />
+               <InputField 
+                  label="মোবাইল নাম্বার" 
+                  icon={Phone} 
+                  name="phone" 
+                  type="tel" 
+                  placeholder="017xxxxxxxx" 
+                  value={formData.phone}
+                  onChange={handleChange}
+               />
+               <InputField 
+                  label="ইমেইল এড্রেস" 
+                  icon={Mail} 
+                  name="email" 
+                  type="email" 
+                  placeholder="example@email.com" 
+                  value={formData.email}
+                  onChange={handleChange}
+               />
                <InputField 
                    label="পাসওয়ার্ড (মিনিমাম ৬)" 
                    icon={Lock} 
                    name="password" 
                    type={showPassword ? "text" : "password"} 
                    placeholder="••••••••" 
+                   value={formData.password}
+                   onChange={handleChange}
+                   showPassword={showPassword}
+                   onTogglePassword={() => setShowPassword(!showPassword)}
                />
 
                <div className="pt-2">
