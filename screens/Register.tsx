@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/SessionContext';
 import { Building2, User, Mail, Phone, Lock, ArrowLeft, Eye, EyeOff, AlertTriangle, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Profile } from '../types';
 
 interface InputFieldProps {
   label: string;
@@ -50,6 +52,7 @@ const InputField = ({ label, icon: Icon, name, type = "text", placeholder, requi
 export const Register = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { setUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -72,9 +75,8 @@ export const Register = () => {
     setLoading(true);
     setError('');
     
-    // SAFETY: Clear local storage to prevent data bleeding from previous sessions if any
     try {
-        localStorage.clear();
+      localStorage.clear(); // Safety clear
     } catch(e) {}
 
     try {
@@ -83,6 +85,7 @@ export const Register = () => {
 
       const cleanPhone = formData.phone.replace(/[\s-]/g, '');
 
+      // 1. Sign Up
       const { data, error } = await supabase.auth.signUp({
         email: formData.email.trim(),
         password: formData.password.trim(),
@@ -98,8 +101,9 @@ export const Register = () => {
 
       if (error) throw error;
 
+      // 2. Create Profile
       if (data.user) {
-         await supabase.from('profiles').upsert({
+         const newProfile: Profile = {
              id: data.user.id,
              full_name: formData.full_name.trim(),
              company_name: formData.company_name.trim(),
@@ -108,23 +112,42 @@ export const Register = () => {
              email: formData.email.trim(),
              is_verified: true,
              balance: 0
-         });
-      }
+         };
 
-      if (data.session) {
-        toast.success('রেজিষ্ট্রেশন সফল হয়েছে!');
-        navigate('/'); 
-      } else {
-        try {
-            const { data: signInData } = await supabase.auth.signInWithPassword({
-                email: formData.email.trim(),
-                password: formData.password.trim(),
-            });
-            if (signInData.session) navigate('/');
-            else navigate('/login');
-        } catch {
-            navigate('/login');
-        }
+         const { error: profileError } = await supabase.from('profiles').upsert(newProfile);
+         if (profileError) {
+             console.error("Profile creation error:", profileError);
+             // Don't throw, user is created in Auth
+         }
+
+         // 3. Handle Session & Redirect
+         if (data.session) {
+             // Session available immediately
+             setUser(newProfile);
+             toast.success('রেজিষ্ট্রেশন সফল হয়েছে!');
+             navigate('/'); 
+         } else {
+             // No session (maybe email confirmation required), try manual sign in just in case
+             try {
+                 const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                    email: formData.email.trim(),
+                    password: formData.password.trim(),
+                 });
+                 
+                 if (signInData.session) {
+                     setUser(newProfile);
+                     toast.success('রেজিষ্ট্রেশন সফল হয়েছে!');
+                     navigate('/');
+                 } else {
+                     // Still no session, user likely needs to confirm email
+                     toast.success('অ্যাকাউন্ট তৈরি হয়েছে!', 'আপনার ইমেইল চেক করুন এবং কনফার্ম করুন।');
+                     navigate('/login');
+                 }
+             } catch (err) {
+                 // Sign in failed
+                 navigate('/login');
+             }
+         }
       }
 
     } catch (err: any) {
@@ -140,10 +163,9 @@ export const Register = () => {
   return (
     <div className="h-screen bg-slate-50 relative font-sans flex flex-col overflow-hidden">
       
-      {/* Centered Header Section - Height Reduced and Padding Adjusted to move content UP */}
+      {/* Centered Header Section */}
       <div className="h-[28vh] w-full relative overflow-hidden flex flex-col items-center justify-start pt-6 text-center px-6 shrink-0 bg-gradient-to-br from-blue-700 via-indigo-800 to-slate-900">
          
-         {/* Back Button */}
          <button 
             onClick={() => navigate('/login')} 
             className="absolute top-5 left-5 p-2.5 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-colors border border-white/10 active:scale-95 z-20"
@@ -151,22 +173,18 @@ export const Register = () => {
             <ArrowLeft size={20} />
          </button>
 
-         {/* Abstract Textures */}
          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
          <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-white opacity-10 rounded-full blur-[60px]"></div>
          <div className="absolute bottom-[-10%] left-[-10%] w-60 h-60 bg-black opacity-20 rounded-full blur-[60px]"></div>
          
          <div className="relative z-10 animate-fade-in-up flex flex-col items-center">
-            {/* Logo */}
             <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-[1.2rem] border border-white/20 flex items-center justify-center mb-3 shadow-2xl relative group">
                 <div className="absolute inset-0 bg-white/20 rounded-[1.2rem] blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <Building2 size={28} className="text-white drop-shadow-md relative z-10" />
             </div>
             
-            {/* Title */}
             <h1 className="text-xl font-extrabold text-white tracking-tight">নতুন অ্যাকাউন্ট</h1>
             
-            {/* Subtitle / Badge */}
             <div className="flex items-center justify-center gap-2 mt-1.5 opacity-90 bg-blue-900/30 px-3 py-1 rounded-full border border-blue-500/30 backdrop-blur-sm">
                 <ShieldCheck size={12} className="text-green-300" />
                 <p className="text-white/90 text-[10px] font-bold">ঠিকাদার রেজিস্ট্রেশন</p>
@@ -174,7 +192,6 @@ export const Register = () => {
          </div>
       </div>
 
-      {/* Scrollable Form Content - Overlapping Card Style */}
       <div className="flex-1 bg-white rounded-t-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.15)] relative -mt-6 z-20 overflow-hidden flex flex-col">
          
          <div className="flex-1 overflow-y-auto px-6 py-8 pb-20">
