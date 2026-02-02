@@ -2,20 +2,20 @@
 <html lang="bn">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#020617" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="প্রজেক্ট খাতা" />
     
-    <title>প্রজেক্ট খাতা</title>
+    <title>প্রজেক্ট খাতা প্রো</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json" />
     
-    <!-- App Icons with Cache Busting -->
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2942/2942838.png?v=2" />
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2942/2942838.png?v=2" />
+    <!-- App Icons (Blue Building to match Splash) -->
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2942/2942544.png?v=4" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2942/2942544.png?v=4" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -27,6 +27,7 @@
               slate: {
                 850: '#1e293b',
                 900: '#0f172a',
+                950: '#020617',
               }
             },
             animation: {
@@ -52,14 +53,14 @@
       /* Critical: Set body background to match Splash Screen to avoid white flash */
       body {
         font-family: 'Hind Siliguri', sans-serif;
-        background-color: #0f172a; 
+        background-color: #020617; 
         margin: 0;
         padding: 0;
         -webkit-tap-highlight-color: transparent;
         overscroll-behavior-y: none;
       }
       #root {
-        background-color: #0f172a;
+        background-color: #020617;
         min-height: 100vh;
       }
       /* Hide scrollbar for clean mobile UI */
@@ -71,17 +72,17 @@
 <script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.93.3",
     "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
     "recharts": "https://esm.sh/recharts@^3.7.0",
     "jsqr": "https://esm.sh/jsqr@^1.4.0",
+    "react-qr-code": "https://esm.sh/react-qr-code@^2.0.18",
     "vite": "https://esm.sh/vite@^7.3.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3",
-    "react-qr-code": "https://esm.sh/react-qr-code@^2.0.18"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.3"
   }
 }
 </script>
