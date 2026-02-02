@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, Search, Ruler, Clock, Coins, X, CheckCircle, Calculator, User, Phone, Send, Plus, ArrowRight, Building, LayoutTemplate } from 'lucide-react';
+import { MapPin, Search, Ruler, Clock, Coins, X, CheckCircle, Calculator, User, Phone, Send, Plus, ArrowRight, Building, LayoutTemplate, Briefcase, ChevronRight, Wallet } from 'lucide-react';
 import { Project } from '../types';
 
 export const Projects = () => {
@@ -26,6 +26,8 @@ export const Projects = () => {
     mistri_rate: '',
     helper_rate: ''
   });
+
+  const isSupervisor = user?.role === 'supervisor';
 
   // Redirect worker if they somehow access this page
   useEffect(() => {
@@ -93,8 +95,9 @@ export const Projects = () => {
     setFormData({ project_name: '', client_name: '', client_phone: '', location: '', budget_amount: '', sqft_rate: '', total_area: '', mistri_rate: '', helper_rate: '' });
   };
 
-  const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-medium text-slate-900 dark:text-white placeholder-slate-400 transition-all";
-  const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide";
+  // Consistent Input Styles (Theme Aware)
+  const inputClass = `w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-${isSupervisor ? 'purple' : 'blue'}-500 focus:ring-4 focus:ring-${isSupervisor ? 'purple' : 'blue'}-500/10 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 transition-all shadow-sm focus:shadow-md`;
+  const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wide ml-1";
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 relative">
@@ -102,14 +105,14 @@ export const Projects = () => {
       <div className="bg-white dark:bg-slate-900 sticky top-0 z-20 px-4 pt-4 pb-2 shadow-sm border-b border-slate-100 dark:border-slate-800">
          <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-               <LayoutTemplate className="text-blue-600" />
+               <LayoutTemplate className={isSupervisor ? "text-purple-600" : "text-blue-600"} />
                প্রজেক্ট তালিকা
             </h2>
             <button 
                onClick={() => setIsModalOpen(true)}
-               className="bg-blue-600 text-white px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-blue-200 dark:shadow-blue-900/40 hover:bg-blue-700 transition-colors active:scale-95"
+               className={`w-12 h-12 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform ${isSupervisor ? 'bg-purple-600 shadow-purple-200 dark:shadow-none' : 'bg-slate-900 dark:bg-blue-600'}`}
             >
-               <Plus size={16} /> নতুন
+               <Plus size={24} />
             </button>
          </div>
          
@@ -120,7 +123,7 @@ export const Projects = () => {
                placeholder="প্রজেক্ট বা লোকেশন খুঁজুন..."
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
-               className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition-all text-slate-900 dark:text-white placeholder-slate-400 font-medium"
+               className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-${isSupervisor ? 'purple' : 'blue'}-500 outline-none text-sm transition-all text-slate-900 dark:text-white placeholder-slate-400 font-medium`}
             />
          </div>
 
@@ -131,7 +134,7 @@ export const Projects = () => {
                   onClick={() => setActiveTab(tab as any)} 
                   className={`px-5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
                      activeTab === tab 
-                     ? 'bg-slate-800 dark:bg-white text-white dark:text-slate-900 shadow-md' 
+                     ? `${isSupervisor ? 'bg-purple-600 text-white' : 'bg-slate-800 text-white dark:bg-white dark:text-slate-900'} shadow-md` 
                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
                   }`}
                >
@@ -160,59 +163,61 @@ export const Projects = () => {
               <div 
                 key={project.id} 
                 onClick={() => navigate(`/projects/${project.id}`)}
-                className="bg-white dark:bg-slate-900 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden active:scale-[0.98] transition-all group"
+                className={`bg-white dark:bg-slate-900 rounded-[2rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800 relative overflow-hidden active:scale-[0.99] transition-all group hover:border-${isSupervisor ? 'purple' : 'blue'}-200 dark:hover:border-${isSupervisor ? 'purple' : 'blue'}-800`}
               >
-                {/* Background Decor */}
-                <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full ${typeConfig.bg} opacity-50 blur-xl group-hover:scale-150 transition-transform duration-500`}></div>
-
-                <div className="flex gap-4 items-start relative z-10">
-                   {/* Icon Box */}
-                   <div className={`w-14 h-14 rounded-2xl ${typeConfig.bg} border ${typeConfig.border} flex items-center justify-center shrink-0`}>
-                      <Building className={typeConfig.text} size={24} />
+                {/* Advanced List Card Design */}
+                <div className="flex justify-between items-start mb-3">
+                   <div className="flex items-center gap-3">
+                      <div className={`w-12 h-12 rounded-2xl ${typeConfig.bg} border ${typeConfig.border} flex items-center justify-center shrink-0 shadow-sm`}>
+                         <Building className={typeConfig.text} size={22} />
+                      </div>
+                      <div>
+                         <h3 className="font-bold text-slate-800 dark:text-white text-lg leading-tight truncate max-w-[180px]">{project.project_name}</h3>
+                         <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
+                            <MapPin size={10} /> {project.location}
+                         </p>
+                      </div>
                    </div>
-                   
-                   <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                         <div>
-                            <h3 className="font-bold text-slate-800 dark:text-white text-lg leading-tight mb-1 truncate max-w-[180px]">{project.project_name}</h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
-                               <MapPin size={10} /> {project.location}
-                            </p>
-                         </div>
-                         <div className={`px-2 py-1 rounded-lg text-[10px] font-bold ${typeConfig.bg} ${typeConfig.text} flex items-center gap-1 border ${typeConfig.border}`}>
-                            <typeConfig.icon size={10} /> {typeConfig.label}
-                         </div>
-                      </div>
-
-                      <div className="mt-5">
-                         <div className="flex justify-between text-xs mb-2">
-                            <span className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wide">খরচ স্ট্যাটাস</span>
-                            <span className="font-bold text-slate-700 dark:text-slate-200">
-                               ৳ {project.current_expense.toLocaleString()} 
-                               <span className="text-slate-400 font-normal"> / {project.budget_amount > 0 ? project.budget_amount.toLocaleString() : '∞'}</span>
-                            </span>
-                         </div>
-                         
-                         {project.project_type !== 'daily' ? (
-                           <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
-                              <div 
-                                 className={`h-full rounded-full transition-all duration-700 ${progress > 100 ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`}
-                                 style={{ width: `${Math.min(progress, 100)}%` }}
-                              ></div>
-                           </div>
-                         ) : (
-                           <div className="w-full bg-orange-50 dark:bg-orange-900/20 rounded-xl p-2 text-center border border-orange-100 dark:border-orange-900/30 border-dashed">
-                              <p className="text-[10px] text-orange-600 dark:text-orange-400 font-bold">ডেইলি বেসিস প্রজেক্ট (বাজেট নেই)</p>
-                           </div>
-                         )}
-                      </div>
+                   <div className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold ${typeConfig.bg} ${typeConfig.text} flex items-center gap-1 border ${typeConfig.border}`}>
+                      <typeConfig.icon size={12} /> {typeConfig.label}
                    </div>
                 </div>
 
-                {/* Arrow Icon */}
-                <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity translate-x-2 group-hover:translate-x-0 duration-300">
-                   <div className="bg-slate-900 dark:bg-white p-2 rounded-full text-white dark:text-slate-900 shadow-lg">
-                      <ArrowRight size={14} />
+                {/* Metrics */}
+                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800 mb-3">
+                   <div className="flex justify-between items-end mb-2">
+                      <div>
+                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">খরচ / বাজেট</p>
+                         <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                            ৳ {project.current_expense.toLocaleString()} 
+                            {project.budget_amount > 0 && <span className="text-slate-400 text-xs font-medium"> / {project.budget_amount.toLocaleString()}</span>}
+                         </p>
+                      </div>
+                      {project.project_type !== 'daily' && (
+                         <span className={`text-xs font-bold text-${isSupervisor ? 'purple' : 'blue'}-600 dark:text-${isSupervisor ? 'purple' : 'blue'}-400`}>{Math.round(progress)}%</span>
+                      )}
+                   </div>
+                   
+                   {project.project_type !== 'daily' && (
+                     <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                           className={`h-full rounded-full transition-all duration-700 ${progress > 100 ? 'bg-red-500' : isSupervisor ? 'bg-purple-600' : 'bg-blue-600'}`}
+                           style={{ width: `${Math.min(progress, 100)}%` }}
+                        ></div>
+                     </div>
+                   )}
+                </div>
+
+                <div className="flex justify-between items-center text-xs">
+                   <div className="flex -space-x-2">
+                      {[...Array(3)].map((_, i) => (
+                         <div key={i} className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-500">
+                            <User size={10} />
+                         </div>
+                      ))}
+                   </div>
+                   <div className={`flex items-center gap-1 text-slate-400 font-medium group-hover:text-${isSupervisor ? 'purple' : 'blue'}-600 transition-colors`}>
+                      বিস্তারিত <ChevronRight size={14} />
                    </div>
                 </div>
               </div>
@@ -242,7 +247,7 @@ export const Projects = () => {
                        onClick={() => setProjectMode(mode.id as any)}
                        className={`flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 ${
                           projectMode === mode.id 
-                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm font-bold scale-105' 
+                          ? `bg-white dark:bg-slate-700 text-${isSupervisor ? 'purple' : 'blue'}-600 dark:text-${isSupervisor ? 'purple' : 'blue'}-400 shadow-sm font-bold scale-105` 
                           : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                        }`}
                     >
@@ -389,10 +394,10 @@ export const Projects = () => {
 
                 <button 
                   type="submit" 
-                  className="w-full py-4 bg-slate-900 dark:bg-blue-600 text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-blue-700 transition-all active:scale-95"
+                  className={`w-full py-4 bg-gradient-to-r ${isSupervisor ? 'from-purple-600 to-indigo-600' : 'from-slate-900 to-slate-800 dark:from-blue-600 dark:to-indigo-600'} text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 hover:shadow-xl transition-all active:scale-95`}
                 >
-                   {user?.role === 'supervisor' ? <Send size={18} /> : <CheckCircle size={18} />}
-                   {user?.role === 'supervisor' ? 'অনুরোধ পাঠান' : 'প্রজেক্ট শুরু করুন'}
+                   {isSupervisor ? <Send size={18} /> : <CheckCircle size={18} />}
+                   {isSupervisor ? 'অনুরোধ পাঠান' : 'প্রজেক্ট শুরু করুন'}
                 </button>
               </form>
            </div>

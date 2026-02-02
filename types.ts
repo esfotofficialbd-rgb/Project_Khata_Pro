@@ -94,3 +94,11 @@ export interface Notification {
   is_read: boolean;
   metadata?: any; // To store payload like project details
 }
+
+export interface PublicNotice {
+  id: string;
+  message: string;
+  created_by: string; // User ID
+  created_at: string;
+  is_active: boolean;
+}

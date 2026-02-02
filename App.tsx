@@ -24,6 +24,7 @@ import { Tools } from './screens/Tools';
 import { AppSettings } from './screens/AppSettings';
 import { Support } from './screens/Support';
 import { About } from './screens/About';
+import { SupervisorEntry } from './screens/SupervisorEntry';
 import { SplashScreen } from './screens/SplashScreen';
 import { Loader2 } from 'lucide-react';
 
@@ -171,6 +172,17 @@ const AppContent = () => {
         <PrivateRoute>
           <Layout>
             <Tools />
+          </Layout>
+        </PrivateRoute>
+      } />
+
+      {/* Supervisor Specific Routes */}
+      <Route path="/entry" element={
+        <PrivateRoute>
+          {/* Layout is optional here since Entry usually takes full screen focus, but wrapping keeps nav if desired. 
+              Prompt implied it's a main nav item, so let's wrap it. */}
+          <Layout>
+             <SupervisorEntry />
           </Layout>
         </PrivateRoute>
       } />

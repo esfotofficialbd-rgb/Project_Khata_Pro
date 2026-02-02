@@ -85,22 +85,49 @@ export const Login = () => {
     }
   };
 
-  const getRoleConfig = (r: UserRole) => {
+  const getRoleTheme = (r: UserRole) => {
     switch(r) {
-      case 'contractor': return { color: 'blue', icon: Building2, label: 'ঠিকাদার' };
-      case 'supervisor': return { color: 'purple', icon: UserCog, label: 'সুপারভাইজার' };
-      case 'worker': return { color: 'emerald', icon: HardHat, label: 'শ্রমিক' };
+      case 'contractor': 
+        return { 
+            bg: 'bg-blue-600', 
+            lightBg: 'bg-blue-50', 
+            text: 'text-blue-600', 
+            border: 'border-blue-100',
+            gradient: 'from-blue-600 to-indigo-600',
+            icon: Building2, 
+            label: 'ঠিকাদার' 
+        };
+      case 'supervisor': 
+        return { 
+            bg: 'bg-purple-600', 
+            lightBg: 'bg-purple-50', 
+            text: 'text-purple-600', 
+            border: 'border-purple-100',
+            gradient: 'from-purple-600 to-fuchsia-600',
+            icon: UserCog, 
+            label: 'সুপারভাইজার' 
+        };
+      case 'worker': 
+        return { 
+            bg: 'bg-emerald-600', 
+            lightBg: 'bg-emerald-50', 
+            text: 'text-emerald-600', 
+            border: 'border-emerald-100',
+            gradient: 'from-emerald-600 to-teal-600',
+            icon: HardHat, 
+            label: 'শ্রমিক' 
+        };
     }
   };
 
-  const activeConfig = getRoleConfig(role);
+  const theme = getRoleTheme(role);
 
   return (
     <div className="min-h-screen bg-slate-950 relative flex flex-col items-center justify-center p-6 overflow-hidden font-sans selection:bg-blue-500/30">
       
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-         <div className={`absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse-slow ${role === 'contractor' ? 'bg-blue-600' : role === 'supervisor' ? 'bg-purple-600' : 'bg-emerald-600'}`}></div>
+         <div className={`absolute top-[-10%] left-[-10%] w-96 h-96 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse-slow ${theme.bg}`}></div>
          <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-screen filter blur-[100px] opacity-20 animate-pulse-slow animation-delay-2000"></div>
       </div>
 
@@ -109,63 +136,63 @@ export const Login = () => {
         {/* Header */}
         <div className="text-center mb-8">
            <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl mb-4 relative group">
-              <div className={`absolute inset-0 bg-${activeConfig.color}-500/20 rounded-3xl blur-xl group-hover:blur-2xl transition-all`}></div>
-              <activeConfig.icon size={40} className={`text-${activeConfig.color}-500 relative z-10`} />
+              <div className={`absolute inset-0 ${theme.bg} opacity-20 rounded-3xl blur-xl group-hover:blur-2xl transition-all`}></div>
+              <theme.icon size={40} className={`${theme.text.replace('600', '500')} relative z-10`} />
            </div>
            <h1 className="text-3xl font-bold text-white tracking-tight mb-2">{APP_NAME}</h1>
-           <p className="text-slate-400 text-sm">আপনার কনস্ট্রাকশন ম্যানেজমেন্ট পার্টনার</p>
+           <p className="text-slate-400 text-sm font-medium">আপনার কনস্ট্রাকশন ম্যানেজমেন্ট পার্টনার</p>
         </div>
 
         {/* Role Selector */}
-        <div className="bg-slate-900/50 backdrop-blur-md p-1.5 rounded-2xl border border-slate-800 flex mb-6">
+        <div className="bg-slate-900/80 backdrop-blur-xl p-1.5 rounded-2xl border border-slate-800 flex mb-6 shadow-xl">
            {(['contractor', 'supervisor', 'worker'] as UserRole[]).map((r) => {
-              const config = getRoleConfig(r);
+              const rTheme = getRoleTheme(r);
               const isActive = role === r;
               return (
                 <button
                   key={r}
                   onClick={() => { setRole(r); setError(''); }}
-                  className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-slate-800 text-white shadow-lg scale-100' : 'text-slate-500 hover:text-slate-300 scale-95'}`}
+                  className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-xl transition-all duration-300 ${isActive ? 'bg-slate-800 text-white shadow-lg ring-1 ring-white/10 scale-100' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50 scale-95'}`}
                 >
-                   <config.icon size={18} className={isActive ? `text-${config.color}-500` : ''} />
-                   <span className="text-[10px] font-bold uppercase tracking-wider">{config.label}</span>
+                   <rTheme.icon size={18} className={isActive ? rTheme.text.replace('600', '500') : ''} />
+                   <span className="text-[10px] font-bold uppercase tracking-wider">{rTheme.label}</span>
                 </button>
               );
            })}
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-[2rem] p-8 shadow-2xl relative overflow-hidden">
-           <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-${activeConfig.color}-500 to-transparent opacity-50`}></div>
+        <div className="bg-white rounded-[2rem] p-8 shadow-2xl relative overflow-hidden ring-1 ring-white/10">
+           <div className={`absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r ${theme.gradient} opacity-80`}></div>
            
-           <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+           <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
               লগইন করুন
-              <span className={`text-xs px-2 py-1 rounded-full bg-${activeConfig.color}-50 text-${activeConfig.color}-600 border border-${activeConfig.color}-100`}>
-                 {activeConfig.label}
+              <span className={`text-xs px-2.5 py-1 rounded-full ${theme.lightBg} ${theme.text} ${theme.border} border font-bold uppercase tracking-wide`}>
+                 {theme.label}
               </span>
            </h2>
 
            {error && (
-             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-3 rounded-r-xl flex items-start gap-2">
-                <AlertTriangle size={16} className="text-red-500 mt-0.5 shrink-0" />
+             <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl flex items-start gap-3 shadow-sm">
+                <AlertTriangle size={18} className="text-red-500 mt-0.5 shrink-0" />
                 <p className="text-xs font-bold text-red-600 leading-relaxed">{error}</p>
              </div>
            )}
 
-           <form onSubmit={handleLogin} className="space-y-4">
+           <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">
+                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">
                     {role === 'contractor' ? 'ইমেইল' : 'মোবাইল নাম্বার'}
                  </label>
                  <div className="relative group">
                     <div className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-slate-800 transition-colors">
-                       {role === 'contractor' ? <Mail size={18}/> : <Phone size={18}/>}
+                       {role === 'contractor' ? <Mail size={20}/> : <Phone size={20}/>}
                     </div>
                     <input 
                       type={role === 'contractor' ? "email" : "tel"}
                       value={identifier}
                       onChange={(e) => setIdentifier(e.target.value)}
-                      className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:bg-white transition-all text-sm font-bold text-slate-800 placeholder-slate-400"
+                      className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-sm font-bold text-slate-900 placeholder-slate-400 shadow-sm"
                       placeholder={role === 'contractor' ? "example@mail.com" : "017xxxxxxxx"}
                       required
                     />
@@ -173,23 +200,23 @@ export const Login = () => {
               </div>
 
               <div>
-                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 ml-1">পাসওয়ার্ড</label>
+                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">পাসওয়ার্ড</label>
                  <div className="relative group">
                     <div className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-slate-800 transition-colors">
-                       <Lock size={18}/>
+                       <Lock size={20}/>
                     </div>
                     <input 
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-11 pr-10 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-slate-800 focus:bg-white transition-all text-sm font-bold text-slate-800 placeholder-slate-400"
+                      className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-sm font-bold text-slate-900 placeholder-slate-400 shadow-sm"
                       placeholder="••••••••"
                       required
                     />
                     <button 
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 transition-colors"
+                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 transition-colors bg-white/50 p-1 rounded-md"
                     >
                        {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
                     </button>
@@ -199,7 +226,7 @@ export const Login = () => {
               <button 
                 type="submit" 
                 disabled={loading}
-                className={`w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg shadow-slate-200 mt-2 hover:bg-slate-800 transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${loading ? 'opacity-80 cursor-not-allowed' : ''}`}
+                className={`w-full py-4 bg-gradient-to-r ${theme.gradient} text-white rounded-2xl font-bold shadow-lg shadow-slate-300 mt-4 hover:shadow-xl hover:scale-[1.01] transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${loading ? 'opacity-80 cursor-not-allowed' : ''}`}
               >
                  {loading ? 'লগইন হচ্ছে...' : (
                     <>
@@ -210,25 +237,29 @@ export const Login = () => {
            </form>
            
            {role === 'contractor' && (
-              <div className="mt-6 text-center pt-6 border-t border-slate-50">
+              <div className="mt-8 text-center pt-6 border-t border-slate-100">
                  <p className="text-xs text-slate-500 font-medium">অ্যাকাউন্ট নেই?</p>
-                 <button onClick={() => navigate('/register')} className="text-sm font-bold text-blue-600 hover:underline mt-1">
+                 <button onClick={() => navigate('/register')} className="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline mt-1 transition-colors">
                     নতুন অ্যাকাউন্ট খুলুন
                  </button>
               </div>
            )}
 
            {role !== 'contractor' && (
-              <div className="mt-6 text-center pt-6 border-t border-slate-50">
-                 <p className="text-xs text-slate-400 font-medium bg-slate-50 py-2 rounded-lg">
-                    পাসওয়ার্ড: আপনার মোবাইল নাম্বারের শেষ ৬ ডিজিট
+              <div className="mt-8 text-center pt-6 border-t border-slate-100">
+                 <p className="text-xs text-slate-500 font-medium bg-slate-50 py-3 rounded-xl border border-slate-100 flex items-center justify-center gap-2">
+                    <Lock size={12}/> পাসওয়ার্ড: মোবাইল নাম্বারের শেষ ৬ ডিজিট
                  </p>
               </div>
            )}
         </div>
 
         <div className="text-center mt-8 opacity-40">
-           <p className="text-[10px] text-white font-mono tracking-widest uppercase">Secured by Project Khata</p>
+           <p className="text-[10px] text-white font-mono tracking-widest uppercase flex items-center justify-center gap-2">
+              <span className="w-1 h-1 bg-white rounded-full"></span> 
+              Secured by Project Khata 
+              <span className="w-1 h-1 bg-white rounded-full"></span>
+           </p>
         </div>
       </div>
     </div>

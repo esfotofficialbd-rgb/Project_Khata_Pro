@@ -90,8 +90,6 @@ export const WorkersList = () => {
     const result: any = await addUser(newUser);
     
     if (result && result.success) {
-        // DataContext already triggers the Toast with credentials.
-        // We just need to close the modal and reset the form.
         setIsModalOpen(false);
         setFormData({
           full_name: '',
@@ -104,6 +102,10 @@ export const WorkersList = () => {
     }
   };
 
+  // Input Class
+  const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm font-bold text-slate-900 dark:text-white placeholder-slate-400 transition-all shadow-sm";
+  const labelClass = "text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase tracking-wide ml-1";
+
   return (
     <div className="p-4 pb-24 min-h-screen relative bg-slate-50 dark:bg-slate-950">
       
@@ -112,18 +114,18 @@ export const WorkersList = () => {
          <h2 className="text-xl font-bold text-slate-800 dark:text-white">কর্মী তালিকা</h2>
          <button 
            onClick={() => setIsModalOpen(true)}
-           className="w-10 h-10 bg-slate-900 dark:bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+           className={`w-12 h-12 text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform ${isSupervisor ? 'bg-purple-600 shadow-purple-200 dark:shadow-none' : 'bg-slate-900 dark:bg-blue-600'}`}
          >
-            <Plus size={20} />
+            <Plus size={24} />
          </button>
       </div>
 
       {!isSupervisor && (
-        <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800">
+        <div className="flex bg-white dark:bg-slate-900 p-1.5 rounded-2xl mb-4 border border-slate-100 dark:border-slate-800 shadow-sm">
           <button
             onClick={() => setActiveTab('worker')}
             className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'worker' ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500'
+              activeTab === 'worker' ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             <HardHat size={16} />
@@ -132,7 +134,7 @@ export const WorkersList = () => {
           <button
             onClick={() => setActiveTab('supervisor')}
             className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'supervisor' ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500'
+              activeTab === 'supervisor' ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             <UserCog size={16} />
@@ -148,7 +150,7 @@ export const WorkersList = () => {
           placeholder="নাম বা ফোন নম্বর খুঁজুন..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-11 pr-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium"
+          className={`w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium shadow-sm ${isSupervisor ? 'focus:ring-purple-500' : 'focus:ring-blue-500'}`}
         />
       </div>
 
@@ -160,20 +162,20 @@ export const WorkersList = () => {
             <div 
                key={user.id} 
                onClick={() => navigate(`/workers/${user.id}`)}
-               className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 active:scale-[0.98] transition-transform cursor-pointer relative overflow-hidden"
+               className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm flex items-center gap-4 active:scale-[0.99] transition-transform cursor-pointer relative overflow-hidden group hover:border-blue-200 dark:hover:border-blue-900"
             >
               {/* Left Stripe */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1 ${user.role === 'worker' ? 'bg-emerald-500' : 'bg-purple-500'}`}></div>
+              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${user.role === 'worker' ? 'bg-emerald-500' : 'bg-purple-500'}`}></div>
 
               <div className="relative">
-                 <img src={user.avatar_url || 'https://picsum.photos/50'} className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 object-cover" alt="" />
+                 <img src={user.avatar_url || 'https://picsum.photos/50'} className="w-14 h-14 rounded-full bg-slate-100 dark:bg-slate-800 object-cover border-2 border-white dark:border-slate-800 shadow-sm" alt="" />
                  <div className={`absolute -bottom-1 -right-1 p-1 rounded-full border-2 border-white dark:border-slate-900 ${user.balance > 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
               </div>
               
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-slate-800 dark:text-white truncate">{user.full_name}</h3>
+              <div className="flex-1 min-w-0 pl-1">
+                <h3 className="font-bold text-slate-800 dark:text-white truncate text-base">{user.full_name}</h3>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${user.role === 'worker' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide ${user.role === 'worker' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'}`}>
                      {activeTab === 'worker' ? user.skill_type : user.designation}
                   </span>
                   
@@ -193,14 +195,14 @@ export const WorkersList = () => {
                  <a 
                     href={`sms:${user.phone}`} 
                     onClick={(e) => e.stopPropagation()} 
-                    className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-500 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                    className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-500 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                  >
                    <MessageSquare size={18} />
                  </a>
                  <a 
                     href={`tel:${user.phone}`} 
                     onClick={(e) => e.stopPropagation()} 
-                    className="p-2.5 bg-green-50 dark:bg-green-900/20 text-green-600 rounded-full hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                    className="p-2.5 bg-green-50 dark:bg-green-900/20 text-green-600 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
                  >
                    <Phone size={18} />
                  </a>
@@ -213,7 +215,7 @@ export const WorkersList = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-           <div className="bg-white dark:bg-slate-900 rounded-[2rem] w-full max-w-md relative z-10 p-6 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-slate-800">
+           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md relative z-10 p-8 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-slate-800">
               
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-slate-800 dark:text-white">নতুন যুক্ত করুন</h3>
@@ -224,16 +226,16 @@ export const WorkersList = () => {
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <button 
                     onClick={() => setFormRole('worker')}
-                    className={`p-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 font-bold transition-all ${formRole === 'worker' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 font-bold transition-all ${formRole === 'worker' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400' : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                   >
-                     <HardHat size={24}/>
+                     <HardHat size={28}/>
                      শ্রমিক
                   </button>
                   <button 
                     onClick={() => setFormRole('supervisor')}
-                    className={`p-3 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 font-bold transition-all ${formRole === 'supervisor' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' : 'border-slate-100 dark:border-slate-800 text-slate-400'}`}
+                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 font-bold transition-all ${formRole === 'supervisor' ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400' : 'border-slate-100 dark:border-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                   >
-                     <UserCog size={24}/>
+                     <UserCog size={28}/>
                      সুপারভাইজার
                   </button>
                 </div>
@@ -241,7 +243,7 @@ export const WorkersList = () => {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">নাম</label>
+                  <label className={labelClass}>নাম</label>
                   <input 
                     name="full_name"
                     type="text"
@@ -249,12 +251,12 @@ export const WorkersList = () => {
                     value={formData.full_name}
                     onChange={handleInputChange}
                     placeholder="পুরো নাম লিখুন"
-                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium"
+                    className={inputClass}
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">মোবাইল নাম্বার</label>
+                  <label className={labelClass}>মোবাইল নাম্বার</label>
                   <input 
                     name="phone"
                     type="tel"
@@ -262,10 +264,10 @@ export const WorkersList = () => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="017xxxxxxxx"
-                    className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium"
+                    className={inputClass}
                   />
-                  <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1">
-                    <CheckCircle size={10} className="text-green-500"/>
+                  <p className="text-[10px] text-slate-400 mt-2 flex items-center gap-1 font-medium bg-slate-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-slate-100 dark:border-slate-700">
+                    <CheckCircle size={12} className="text-green-500"/>
                     অটো পাসওয়ার্ড: <span className="font-mono font-bold text-slate-600 dark:text-slate-300">{getPasswordPreview()}</span>
                   </p>
                 </div>
@@ -273,24 +275,24 @@ export const WorkersList = () => {
                 {formRole === 'worker' && (
                   <>
                     <div>
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">পদবী / কাজের ধরণ</label>
+                      <label className={labelClass}>পদবী / কাজের ধরণ</label>
                       <div className="relative">
                          <select 
                             name="skill_type"
                             value={formData.skill_type}
                             onChange={handleInputChange}
-                            className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm appearance-none text-slate-900 dark:text-white font-medium"
+                            className={`${inputClass} appearance-none`}
                          >
                             {workerSkills.map(skill => (
                               <option key={skill} value={skill}>{skill}</option>
                             ))}
                          </select>
-                         <ChevronDown size={16} className="absolute right-4 top-4 text-slate-400 pointer-events-none" />
+                         <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">প্রতিদিনের হাজিরা (মজুরি)</label>
+                      <label className={labelClass}>প্রতিদিনের হাজিরা (মজুরি)</label>
                       <input 
                         name="rate"
                         type="number"
@@ -298,7 +300,7 @@ export const WorkersList = () => {
                         value={formData.rate}
                         onChange={handleInputChange}
                         placeholder="৳ ৫০০"
-                        className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium"
+                        className={inputClass}
                       />
                     </div>
                   </>
@@ -307,7 +309,7 @@ export const WorkersList = () => {
                 {formRole === 'supervisor' && !isSupervisor && (
                    <>
                      <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">বেতন / হাজিরার ধরণ</label>
+                        <label className={labelClass}>বেতন / হাজিরার ধরণ</label>
                         <div className="flex gap-4">
                            <label className="flex items-center gap-2 p-3 border border-slate-200 dark:border-slate-700 rounded-2xl flex-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                               <input 
@@ -335,7 +337,7 @@ export const WorkersList = () => {
                      </div>
 
                      <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">
+                        <label className={labelClass}>
                            {formData.payment_type === 'daily' ? 'প্রতিদিনের পরিমাণ' : 'মাসিক বেতনের পরিমাণ'}
                         </label>
                         <input 
@@ -345,25 +347,25 @@ export const WorkersList = () => {
                           value={formData.rate}
                           onChange={handleInputChange}
                           placeholder="৳"
-                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm text-slate-900 dark:text-white placeholder-slate-400 font-medium"
+                          className={inputClass}
                         />
                      </div>
 
                      <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 block uppercase tracking-wide">প্রজেক্ট (অপশনাল)</label>
+                        <label className={labelClass}>প্রজেক্ট (অপশনাল)</label>
                         <div className="relative">
                           <select 
                               name="project_id"
                               value={formData.project_id}
                               onChange={handleInputChange}
-                              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm appearance-none text-slate-900 dark:text-white font-medium"
+                              className={`${inputClass} appearance-none`}
                           >
                               <option value="">কোন প্রজেক্ট সিলেক্ট করা নেই</option>
                               {projects.filter(p => p.status === 'active').map(p => (
                                 <option key={p.id} value={p.id}>{p.project_name}</option>
                               ))}
                           </select>
-                          <ChevronDown size={16} className="absolute right-4 top-4 text-slate-400 pointer-events-none" />
+                          <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                         </div>
                      </div>
                    </>

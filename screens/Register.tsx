@@ -82,9 +82,6 @@ export const Register = () => {
         navigate('/'); 
       } else {
         // No session? Try Auto Login manually as a fallback
-        // Sometimes signUp doesn't return session immediately if verification is on, 
-        // OR if persistence layer is slow. Let's try explicit sign in.
-        
         try {
             const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
                 email: formData.email.trim(),
@@ -95,12 +92,10 @@ export const Register = () => {
                 toast.success('স্বাগতম! ড্যাশবোর্ডে প্রবেশ করছেন...');
                 navigate('/');
             } else {
-                // If sign in fails, it likely means Email Verification is REQUIRED
                 toast.success('রেজিষ্ট্রেশন সফল! দয়া করে আপনার ইমেইল চেক করে ভেরিফাই করুন।');
                 navigate('/login');
             }
         } catch (autoLoginError) {
-            // Fallback to login page if auto-login fails
             toast.success('রেজিষ্ট্রেশন সফল! দয়া করে লগইন করুন।');
             navigate('/login');
         }
@@ -125,36 +120,36 @@ export const Register = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
-        <button onClick={() => navigate('/login')} className="mb-6 text-slate-500 hover:text-blue-600 flex items-center gap-1 w-fit transition-colors text-sm font-bold">
+      <div className="w-full max-w-sm bg-white rounded-[2rem] shadow-xl border border-slate-100 p-8">
+        <button onClick={() => navigate('/login')} className="mb-6 text-slate-500 hover:text-blue-600 flex items-center gap-2 w-fit transition-colors text-sm font-bold bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
           <ArrowLeft size={16} /> ফিরে যান
         </button>
 
         <div className="mb-8">
-          <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 mb-4">
-             <Building2 size={24} />
+          <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 mb-4 shadow-sm border border-blue-100">
+             <Building2 size={28} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">নতুন অ্যাকাউন্ট</h1>
-          <p className="text-slate-500 text-sm mt-1">ঠিকাদার হিসেবে রেজিষ্ট্রেশন করুন</p>
+          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">নতুন অ্যাকাউন্ট</h1>
+          <p className="text-slate-500 text-sm mt-1 font-medium">ঠিকাদার হিসেবে রেজিষ্ট্রেশন করুন</p>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-100 p-3 rounded-xl flex items-start gap-2 text-red-600 text-xs font-bold mb-6 animate-pulse">
-             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-             <p>{error}</p>
+          <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3 text-red-600 text-xs font-bold mb-6 animate-pulse shadow-sm">
+             <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+             <p className="leading-relaxed">{error}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">আপনার নাম</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">আপনার নাম</label>
             <div className="relative group">
-              <User className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <User className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 name="full_name"
                 type="text"
                 required
-                className="w-full pl-10 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
                 placeholder="পূর্ণ নাম"
                 onChange={handleChange}
               />
@@ -162,14 +157,14 @@ export const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">প্রতিষ্ঠানের নাম</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">প্রতিষ্ঠানের নাম</label>
             <div className="relative group">
-              <Building2 className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <Building2 className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 name="company_name"
                 type="text"
                 required
-                className="w-full pl-10 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
                 placeholder="কোম্পানির নাম"
                 onChange={handleChange}
               />
@@ -177,29 +172,29 @@ export const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">মোবাইল নাম্বার</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">মোবাইল নাম্বার</label>
             <div className="relative group">
-              <Phone className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <Phone className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 name="phone"
                 type="tel"
                 required
                 placeholder="017xxxxxxxx"
-                className="w-full pl-10 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
                 onChange={handleChange}
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">ইমেইল</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">ইমেইল</label>
             <div className="relative group">
-              <Mail className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <Mail className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 name="email"
                 type="email"
                 required
-                className="w-full pl-10 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full pl-11 pr-4 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
                 placeholder="example@mail.com"
                 onChange={handleChange}
               />
@@ -207,21 +202,21 @@ export const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1">পাসওয়ার্ড (মিনিমাম ৬)</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1.5 ml-1 uppercase tracking-wide">পাসওয়ার্ড (মিনিমাম ৬)</label>
             <div className="relative group">
-              <Lock className="absolute left-3 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
+              <Lock className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={18} />
               <input
                 name="password"
                 type={showPassword ? "text" : "password"}
                 required
-                className="w-full pl-10 pr-10 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full pl-11 pr-11 p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all placeholder-slate-400"
                 placeholder="••••••••"
                 onChange={handleChange}
               />
               <button 
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 bg-white/50 p-1 rounded-md"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -231,7 +226,7 @@ export const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold mt-6 shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 rounded-2xl font-bold mt-6 shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-[1.01] transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? <Loader2 size={20} className="animate-spin" /> : 'অ্যাকাউন্ট খুলুন'}
           </button>

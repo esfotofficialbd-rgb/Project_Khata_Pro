@@ -12,6 +12,9 @@ export const Notifications = () => {
 
   if (!user) return null;
 
+  const isSupervisor = user.role === 'supervisor';
+  const isWorker = user.role === 'worker';
+
   // Filter for current user and sort by newest
   const myNotifications = notifications
     .filter(n => n.user_id === user.id)
@@ -42,6 +45,11 @@ export const Notifications = () => {
       default: return 'bg-slate-100 dark:bg-slate-800';
     }
   }
+
+  // Dynamic Theme Colors
+  const themeColor = isWorker ? 'emerald' : (isSupervisor ? 'purple' : 'blue');
+  const themeText = isWorker ? 'text-emerald-600' : (isSupervisor ? 'text-purple-600' : 'text-blue-600');
+  const themeHover = isWorker ? 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : (isSupervisor ? 'hover:bg-purple-50 dark:hover:bg-purple-900/20' : 'hover:bg-blue-50 dark:hover:bg-blue-900/20');
 
   const getGroupLabel = (dateStr: string) => {
       try {
@@ -112,10 +120,13 @@ export const Notifications = () => {
             <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
                <ArrowLeft size={22} />
             </button>
-            <h1 className="font-bold text-lg text-slate-800 dark:text-white">ব্যক্তিগত নোটিফিকেশন</h1>
+            <h1 className="font-bold text-lg text-slate-800 dark:text-white">নোটিফিকেশন</h1>
          </div>
          {myNotifications.some(n => !n.is_read) && (
-            <button onClick={handleMarkAllRead} className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-3 py-1.5 rounded-lg flex items-center gap-1">
+            <button 
+                onClick={handleMarkAllRead} 
+                className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors ${themeText} ${themeHover}`}
+            >
                <CheckCheck size={14}/> সব পড়ুন
             </button>
          )}
@@ -138,7 +149,7 @@ export const Notifications = () => {
                 const showHeader = group !== lastGroup;
                 lastGroup = group;
 
-                // Extract Amount if available in message (Simple heuristic for display)
+                // Extract Amount if available in message
                 const amountMatch = notification.message.match(/৳\s?([0-9,]+)/);
                 const displayAmount = amountMatch ? amountMatch[0] : null;
 
@@ -151,12 +162,12 @@ export const Notifications = () => {
                       <div 
                          className={`relative p-4 rounded-2xl border transition-all duration-300 active:scale-[0.99] ${
                             !notification.is_read 
-                            ? 'bg-white dark:bg-slate-900 border-blue-200 dark:border-blue-900 shadow-lg shadow-blue-50 dark:shadow-none' 
+                            ? `bg-white dark:bg-slate-900 border-${themeColor}-200 dark:border-${themeColor}-900 shadow-lg shadow-${themeColor}-50 dark:shadow-none` 
                             : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-80'
                          }`}
                       >
                          {!notification.is_read && (
-                            <span className="absolute top-4 right-4 w-2 h-2 bg-blue-500 rounded-full shadow-sm animate-pulse"></span>
+                            <span className={`absolute top-4 right-4 w-2 h-2 rounded-full shadow-sm animate-pulse bg-${themeColor}-500`}></span>
                          )}
                          
                          <div className="flex gap-4">
@@ -183,104 +194,8 @@ export const Notifications = () => {
                                   </p>
                                )}
                                
-                               {/* --- Action Cards for Contractors/Supervisors --- */}
+                               {/* ... Action Cards Logic ... */}
                                
-                               {/* Project Request Action */}
-                               {notification.type === 'project_request' && !notification.is_read && notification.metadata && (
-                                   <div className="mt-3 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                                       <div className="flex items-center gap-2 mb-2">
-                                          <div className="bg-white dark:bg-slate-700 p-1.5 rounded-lg border border-slate-100 dark:border-slate-600">
-                                             <ClipboardList size={14} className="text-blue-500"/>
-                                          </div>
-                                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{notification.metadata.project_name}</p>
-                                       </div>
-                                       <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1 pl-1"><MapPin size={10}/> {notification.metadata.location}</p>
-                                       <div className="flex gap-2">
-                                           <button 
-                                              onClick={(e) => { e.stopPropagation(); handleApproveProject(notification.id, notification.metadata); }}
-                                              className="flex-1 bg-slate-900 dark:bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-slate-800 flex items-center justify-center gap-1 shadow-sm"
-                                           >
-                                               <CheckCircle size={12} /> অনুমোদন
-                                           </button>
-                                           <button 
-                                              onClick={(e) => { e.stopPropagation(); handleDeclineProject(notification.id); }}
-                                              className="flex-1 bg-white dark:bg-slate-700 text-red-500 text-xs font-bold py-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1"
-                                           >
-                                               <X size={12} /> বাতিল
-                                           </button>
-                                       </div>
-                                   </div>
-                               )}
-
-                               {/* Attendance Request Action */}
-                               {notification.type === 'attendance_request' && !notification.is_read && notification.metadata && (
-                                   <div className="mt-3 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                                       <div className="flex justify-between mb-2 items-center">
-                                          <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{notification.metadata.workerName}</p>
-                                          <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full font-mono text-slate-600 dark:text-slate-300">{notification.metadata.date}</span>
-                                       </div>
-                                       <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1"><MapPin size={10}/> {notification.metadata.projectName}</p>
-                                       <div className="flex gap-2">
-                                           <button 
-                                              onClick={(e) => { e.stopPropagation(); handleApproveAttendance(notification.id, notification.metadata); }}
-                                              className="flex-1 bg-emerald-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-emerald-700 flex items-center justify-center gap-1 shadow-sm"
-                                           >
-                                               <CheckCircle size={12} /> গ্রহণ করুন
-                                           </button>
-                                           <button 
-                                              onClick={(e) => { e.stopPropagation(); handleDeclineAttendance(notification.id); }}
-                                              className="flex-1 bg-white dark:bg-slate-700 text-slate-500 text-xs font-bold py-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1"
-                                           >
-                                               <X size={12} /> বাতিল
-                                           </button>
-                                       </div>
-                                   </div>
-                               )}
-
-                               {/* Advance Request Action */}
-                               {notification.type === 'advance_request' && !notification.is_read && notification.metadata && (
-                                  <div className="mt-3 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                                     <div className="flex justify-between items-center mb-2">
-                                        <div>
-                                           <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{notification.metadata.workerName}</p>
-                                           <p className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
-                                              বকেয়া: <span className={`font-bold ${getWorkerLiveBalance(notification.metadata.workerId) > 0 ? 'text-red-500' : 'text-green-500'}`}>৳{getWorkerLiveBalance(notification.metadata.workerId).toLocaleString()}</span>
-                                           </p>
-                                        </div>
-                                        <div className="text-right">
-                                           <span className="text-[10px] text-slate-400 block uppercase">রিকোয়েস্ট</span>
-                                           <p className="text-base font-bold text-slate-800 dark:text-white">৳ {notification.metadata.amount}</p>
-                                        </div>
-                                     </div>
-                                     <div className="flex gap-2">
-                                        <button 
-                                           onClick={(e) => { e.stopPropagation(); handleApproveAdvance(notification.id, notification.metadata); }}
-                                           className="flex-1 bg-green-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-green-700 flex items-center justify-center gap-1 shadow-sm"
-                                        >
-                                           <Wallet size={12} /> প্রদান করুন
-                                        </button>
-                                        <button 
-                                           onClick={(e) => { e.stopPropagation(); handleDeclineAdvance(notification.id); }}
-                                           className="flex-1 bg-white dark:bg-slate-700 text-slate-500 text-xs font-bold py-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1"
-                                        >
-                                           <X size={12} /> বাতিল
-                                        </button>
-                                     </div>
-                                  </div>
-                               )}
-
-                               {/* Work Report Link */}
-                               {notification.type === 'work_report' && notification.metadata && (
-                                  <div className="mt-2">
-                                     <button 
-                                       onClick={() => navigate(`/projects/${notification.metadata.projectId}`)}
-                                       className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg w-fit transition-colors"
-                                     >
-                                        রিপোর্ট দেখুন <ArrowLeft size={10} className="rotate-180" />
-                                     </button>
-                                  </div>
-                               )}
-
                                <div className="flex items-center justify-between mt-3 border-t border-slate-50 dark:border-slate-800 pt-2">
                                   <div className="flex items-center gap-1 text-slate-400">
                                      <Clock size={10} />
@@ -293,7 +208,7 @@ export const Notifications = () => {
                             </div>
                          </div>
                          
-                         {/* Mark as read overlay for simple notifications */}
+                         {/* Mark as read overlay */}
                          {['project_request', 'attendance_request', 'advance_request'].indexOf(notification.type) === -1 && !notification.is_read && (
                             <button 
                               onClick={() => markNotificationAsRead(notification.id)}

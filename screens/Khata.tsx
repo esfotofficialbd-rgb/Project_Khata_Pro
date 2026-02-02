@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useData } from '../context/DataContext';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/SessionContext';
 import { Calendar, ChevronLeft, ChevronRight, X, Search, QrCode, Clock, CheckCircle, UserCheck, RefreshCw, Smartphone, AlertTriangle } from 'lucide-react';
 import jsQR from 'jsqr';
 
 export const Khata = () => {
   const { users, projects, markAttendance, addOvertime, attendance, getDailyStats } = useData();
+  const { user } = useAuth();
   const location = useLocation();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [modalOpen, setModalOpen] = useState(false);
   const [currentAction, setCurrentAction] = useState<{workerId: string, status: 'P' | 'H'} | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
+  const isSupervisor = user?.role === 'supervisor';
+
   // Overtime State
   const [otModalOpen, setOtModalOpen] = useState(false);
   const [selectedWorkerForOt, setSelectedWorkerForOt] = useState<string | null>(null);
@@ -233,7 +237,7 @@ export const Khata = () => {
           
           <div className="flex flex-col items-center">
              <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white text-sm">
-                <Calendar size={16} className="text-blue-500" />
+                <Calendar size={16} className={isSupervisor ? "text-purple-500" : "text-blue-500"} />
                 {displayDate}
              </div>
              {selectedDate === new Date().toISOString().split('T')[0] && (
@@ -271,12 +275,12 @@ export const Khata = () => {
               placeholder="কর্মী খুঁজুন..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 dark:text-white font-medium"
+              className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-${isSupervisor ? 'purple' : 'blue'}-500 outline-none text-sm text-slate-900 dark:text-white font-medium`}
             />
           </div>
           <button 
              onClick={startScanning}
-             className="bg-slate-900 dark:bg-blue-600 text-white p-3 rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+             className={`text-white p-3 rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${isSupervisor ? 'bg-purple-600' : 'bg-slate-900 dark:bg-blue-600'}`}
              title="QR স্ক্যানার চালু করুন"
           >
              <QrCode size={20} />
@@ -362,9 +366,9 @@ export const Khata = () => {
                 <button
                   key={project.id}
                   onClick={() => confirmProject(project.id)}
-                  className="w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+                  className={`w-full text-left p-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-${isSupervisor ? 'purple' : 'blue'}-500 dark:hover:border-${isSupervisor ? 'purple' : 'blue'}-500 hover:bg-${isSupervisor ? 'purple' : 'blue'}-50 dark:hover:bg-${isSupervisor ? 'purple' : 'blue'}-900/20 transition-all group`}
                 >
-                  <p className="font-bold text-slate-800 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400">{project.project_name}</p>
+                  <p className={`font-bold text-slate-800 dark:text-white group-hover:text-${isSupervisor ? 'purple' : 'blue'}-700 dark:group-hover:text-${isSupervisor ? 'purple' : 'blue'}-400`}>{project.project_name}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{project.location}</p>
                 </button>
               ))}

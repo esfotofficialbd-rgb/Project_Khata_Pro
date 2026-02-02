@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
-import { ArrowLeft, MapPin, User, Phone, Calendar, Wallet, ArrowUpRight, ArrowDownLeft, Settings, CheckCircle, FileText } from 'lucide-react';
+import { ArrowLeft, MapPin, User, Phone, Calendar, Wallet, ArrowUpRight, ArrowDownLeft, Settings, CheckCircle, FileText, Package, Truck, Image, X } from 'lucide-react';
 import { Project } from '../types';
 
 export const ProjectDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { projects, transactions, attendance, updateProject, workReports, users } = useData();
+  const { projects, transactions, attendance, updateProject, workReports, users, materialLogs } = useData();
   const { user } = useAuth();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'reports'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'materials'>('overview');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const project = projects.find(p => p.id === id);
 
@@ -23,6 +24,7 @@ export const ProjectDetails = () => {
   const projectTransactions = transactions.filter(t => t.project_id === id);
   const projectAttendance = attendance.filter(a => a.project_id === id);
   const projectReports = workReports.filter(r => r.project_id === id).sort((a,b) => b.id.localeCompare(a.id));
+  const projectMaterials = materialLogs.filter(m => m.project_id === id).sort((a,b) => b.id.localeCompare(a.id));
   
   // Stats
   const totalLaborCost = projectAttendance.reduce((sum, a) => sum + a.amount, 0);
@@ -97,13 +99,19 @@ export const ProjectDetails = () => {
                onClick={() => setActiveTab('reports')}
                className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'reports' ? 'bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}
              >
-                 কাজের রিপোর্ট
+                 রিপোর্ট
+             </button>
+             <button 
+               onClick={() => setActiveTab('materials')}
+               className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'materials' ? 'bg-white dark:bg-slate-700 shadow text-purple-600 dark:text-purple-400' : 'text-slate-500 dark:text-slate-400'}`}
+             >
+                 ম্যাটেরিয়াল
              </button>
          </div>
       </div>
 
       <div className="p-4 space-y-4">
-        {activeTab === 'overview' ? (
+        {activeTab === 'overview' && (
            <>
                 {/* Status Banner */}
                 {project.status === 'completed' && (
@@ -219,7 +227,9 @@ export const ProjectDetails = () => {
                 </div>
                 </div>
            </>
-        ) : (
+        )}
+
+        {activeTab === 'reports' && (
            <div className="space-y-4">
               {/* Reports List */}
               {projectReports.length === 0 ? (
@@ -245,8 +255,61 @@ export const ProjectDetails = () => {
                           {report.description}
                        </p>
                        {report.image_url && (
-                          <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
+                          <div 
+                            className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 cursor-pointer"
+                            onClick={() => setSelectedImage(report.image_url!)}
+                          >
                              <img src={report.image_url} alt="Report" className="w-full h-auto object-cover max-h-60" />
+                          </div>
+                       )}
+                    </div>
+                 ))
+              )}
+           </div>
+        )}
+
+        {activeTab === 'materials' && (
+           <div className="space-y-4">
+              {/* Material Logs List */}
+              {projectMaterials.length === 0 ? (
+                 <div className="text-center py-10 bg-white dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                    <Package size={32} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                    <p className="text-slate-400 dark:text-slate-500 text-xs font-bold">কোন মালামাল এন্ট্রি নেই</p>
+                 </div>
+              ) : (
+                 projectMaterials.map(log => (
+                    <div key={log.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                       {/* Left Stripe */}
+                       <div className="absolute top-0 bottom-0 left-0 w-1 bg-purple-500"></div>
+                       
+                       <div className="flex justify-between items-start mb-3 pl-2">
+                          <div>
+                             <h3 className="font-bold text-slate-800 dark:text-white text-base">{log.item_name}</h3>
+                             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+                                <Truck size={10} /> {log.supplier_name || 'সাপ্লায়ার নেই'}
+                             </p>
+                          </div>
+                          <span className="bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-lg text-xs font-bold border border-purple-100 dark:border-purple-800">
+                             {log.quantity} {log.unit}
+                          </span>
+                       </div>
+
+                       <div className="flex items-center justify-between pl-2 pt-2 border-t border-slate-50 dark:border-slate-800">
+                          <div className="flex items-center gap-1.5 text-slate-400">
+                             <User size={12} />
+                             <p className="text-[10px] font-medium">{getUserName(log.submitted_by)}</p>
+                          </div>
+                          <p className="text-[10px] font-bold text-slate-400">{log.date}</p>
+                       </div>
+
+                       {log.challan_photo && (
+                          <div className="mt-3 pl-2">
+                             <button 
+                               onClick={() => setSelectedImage(log.challan_photo!)}
+                               className="text-[10px] font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1.5 rounded hover:underline"
+                             >
+                                <Image size={12} /> চালান দেখুন
+                             </button>
                           </div>
                        )}
                     </div>
@@ -334,6 +397,16 @@ export const ProjectDetails = () => {
               </form>
            </div>
         </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {selectedImage && (
+         <div className="fixed inset-0 z-[80] bg-black/90 flex flex-col items-center justify-center p-4 backdrop-blur-md" onClick={() => setSelectedImage(null)}>
+            <button className="absolute top-5 right-5 p-2 bg-white/10 rounded-full text-white hover:bg-white/20">
+               <X size={24} />
+            </button>
+            <img src={selectedImage} alt="Preview" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" />
+         </div>
       )}
     </div>
   );

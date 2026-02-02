@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { Profile, Project, Attendance, Transaction, DailyStats, Notification, WorkReport, MaterialLog } from '../types';
+import { Profile, Project, Attendance, Transaction, DailyStats, Notification, WorkReport, MaterialLog, PublicNotice } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { supabase, supabaseUrl, supabaseAnonKey } from '../supabaseClient';
 import { useAuth } from './SessionContext';
@@ -24,6 +24,7 @@ interface DataContextType {
   notifications: Notification[];
   workReports: WorkReport[];
   materialLogs: MaterialLog[];
+  publicNotices: PublicNotice[];
   appSettings: AppSettings;
   isLoadingData: boolean;
   isOnline: boolean;
@@ -34,6 +35,7 @@ interface DataContextType {
   submitAdvanceRequest: (workerId: string, amount: number) => Promise<void>;
   addWorkReport: (report: WorkReport) => Promise<void>;
   addMaterialLog: (log: MaterialLog) => Promise<void>;
+  addPublicNotice: (message: string) => Promise<void>;
   addOvertime: (workerId: string, hours: number, date: string) => Promise<void>;
   addProject: (project: Project) => Promise<void>;
   requestProject: (project: Project, supervisorName: string) => Promise<void>;
@@ -70,7 +72,8 @@ const CACHE_KEYS = {
   TRANSACTIONS: 'pk_data_transactions',
   NOTIFICATIONS: 'pk_data_notifications',
   REPORTS: 'pk_data_reports',
-  MATERIALS: 'pk_data_materials'
+  MATERIALS: 'pk_data_materials',
+  NOTICES: 'pk_data_notices'
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -93,6 +96,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [notifications, setNotifications] = useState<Notification[]>(() => loadFromCache(CACHE_KEYS.NOTIFICATIONS, []));
   const [workReports, setWorkReports] = useState<WorkReport[]>(() => loadFromCache(CACHE_KEYS.REPORTS, []));
   const [materialLogs, setMaterialLogs] = useState<MaterialLog[]>(() => loadFromCache(CACHE_KEYS.MATERIALS, []));
+  const [publicNotices, setPublicNotices] = useState<PublicNotice[]>(() => loadFromCache(CACHE_KEYS.NOTICES, []));
   
   const [isLoadingData, setIsLoadingData] = useState(() => {
      return !(localStorage.getItem(CACHE_KEYS.PROJECTS) && localStorage.getItem(CACHE_KEYS.USERS));
@@ -145,14 +149,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const [usersRes, projectsRes, attRes, txRes, notifRes, reportsRes, matRes] = await Promise.all([
+      const [usersRes, projectsRes, attRes, txRes, notifRes, reportsRes, matRes, noticesRes] = await Promise.all([
         supabase.from('profiles').select('*').limit(1000),
         supabase.from('projects').select('*').limit(1000),
         supabase.from('attendance').select('*').limit(5000),
         supabase.from('transactions').select('*').limit(2000),
         supabase.from('notifications').select('*').limit(100),
         supabase.from('work_reports').select('*').limit(500),
-        supabase.from('material_logs').select('*').limit(500)
+        supabase.from('material_logs').select('*').limit(500),
+        supabase.from('public_notices').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(20)
       ]);
 
       if (usersRes.data) { setUsers(usersRes.data); localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(usersRes.data)); }
@@ -162,6 +167,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (notifRes.data) { setNotifications(notifRes.data); localStorage.setItem(CACHE_KEYS.NOTIFICATIONS, JSON.stringify(notifRes.data)); }
       if (reportsRes.data) { setWorkReports(reportsRes.data); localStorage.setItem(CACHE_KEYS.REPORTS, JSON.stringify(reportsRes.data)); }
       if (matRes.data) { setMaterialLogs(matRes.data); localStorage.setItem(CACHE_KEYS.MATERIALS, JSON.stringify(matRes.data)); }
+      if (noticesRes.data) { setPublicNotices(noticesRes.data); localStorage.setItem(CACHE_KEYS.NOTICES, JSON.stringify(noticesRes.data)); }
 
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -192,7 +198,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
              toast.info('নতুন নোটিফিকেশন', newNotif.message); // Updated Call
           }
       })
-      // 2. Listen for other data changes to refresh context
+      // 2. Listen for public notices
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'public_notices' }, (payload) => {
+          const newNotice = payload.new as PublicNotice;
+          if (newNotice.is_active) {
+             setPublicNotices(prev => [newNotice, ...prev]);
+             toast.info('নতুন নোটিশ', 'পাবলিক ফিড চেক করুন');
+          }
+      })
+      // 3. Listen for other data changes to refresh context
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, handleGeneralUpdate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, handleGeneralUpdate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, handleGeneralUpdate)
@@ -658,6 +672,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
+  const addPublicNotice = async (message: string) => {
+      if (!checkOnline()) return;
+      if (!user) return;
+
+      const { data, error } = await supabase.from('public_notices').insert([{
+          message,
+          created_by: user.id
+      }]).select();
+
+      if (error) {
+          toast.error('নোটিশ প্রকাশ করা যায়নি');
+          return;
+      }
+
+      if (data) {
+          setPublicNotices(prev => [data[0] as PublicNotice, ...prev]);
+      }
+  };
+
   const updateAppSettings = (settings: AppSettings) => {
     setAppSettings(settings);
     toast.info('সেটিংস আপডেট হয়েছে');
@@ -672,6 +705,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       notifications,
       workReports,
       materialLogs,
+      publicNotices,
       appSettings,
       isLoadingData,
       isOnline,
@@ -697,6 +731,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       addTransaction,
       addWorkReport,
       addMaterialLog,
+      addPublicNotice,
       refreshData
     }}>
       {children}
