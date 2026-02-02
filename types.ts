@@ -102,3 +102,11 @@ export interface PublicNotice {
   created_at: string;
   is_active: boolean;
 }
+
+export interface UserLocation {
+  user_id: string;
+  lat: number;
+  lng: number;
+  is_active: boolean;
+  last_updated: string;
+}
