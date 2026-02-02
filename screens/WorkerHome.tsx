@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
@@ -375,7 +376,7 @@ export const WorkerHome = () => {
                             <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
                                 <Wallet size={10} /> {t('current_due')}
                             </p>
-                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</p>
+                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</h1>
                         </div>
                         <div className="bg-white/20 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-inner">
                             <ShieldCheck size={20} className="text-white" />
