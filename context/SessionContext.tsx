@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const cached = localStorage.getItem('pk_user_profile');
         if (cached) {
             setUserState(JSON.parse(cached));
-            setLoading(false);
+            if (mounted) setLoading(false);
         }
 
         // 2. Check Supabase Session (Verification)
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (error || !session) {
             if (mounted) {
-                // If cache exists but session is invalid, clear it
+                // Only clear if we had a user but session is gone
                 if (localStorage.getItem('pk_user_profile')) {
                     handleLocalLogout();
                 }
@@ -51,9 +51,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return;
         }
 
-        // 3. Fetch/Update Profile
+        // 3. Fetch/Update Profile if session exists
         if (session.user) {
            await fetchProfile(session.user.id);
+        } else {
+           if(mounted) setLoading(false);
         }
       } catch (error) {
         console.error("Auth init error:", error);
@@ -67,7 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_IN' && session?.user) {
          await fetchProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
-         // Optionally handle automatic signout
+         if (mounted) handleLocalLogout();
       }
     });
 
@@ -88,9 +90,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data) {
         setUserState(data as Profile);
         localStorage.setItem('pk_user_profile', JSON.stringify(data));
+      } else if (error) {
+         console.error("Profile fetch error:", error);
       }
     } catch (error) {
-      console.error('Fetch profile error', error);
+      console.error('Fetch profile catch', error);
     } finally {
       setLoading(false);
     }
@@ -107,26 +111,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleLocalLogout = () => {
       setUserState(null);
-      // Clear all app data except settings
+      // Preserve settings, clear everything else
       const settings = localStorage.getItem('pk_settings');
-      localStorage.clear();
+      localStorage.clear(); 
       if(settings) localStorage.setItem('pk_settings', settings);
   };
 
   const logout = async () => {
-    // 1. Clear Local Data immediately
-    handleLocalLogout();
-    
-    // 2. Attempt Server Signout (Don't wait too long)
     try {
+        // 1. Clear local state immediately
+        handleLocalLogout();
+        
+        // 2. Try to sign out from Supabase
         await supabase.auth.signOut();
     } catch (e) {
-        console.warn("Supabase signout notice:", e);
-    } 
-
-    // 3. HARD RELOAD - The ultimate fix for "stuck" states
-    // This forces the browser to clear memory and restart the app fresh
-    window.location.href = '/'; 
+        console.warn("Supabase signout warning:", e);
+    } finally {
+        // 3. Reload to clean slate (safest way to reset all states)
+        window.location.reload(); 
+    }
   };
 
   return (

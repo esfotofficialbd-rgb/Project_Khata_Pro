@@ -45,8 +45,9 @@ interface DataContextType {
   getDailyStats: (date: string) => DailyStats;
   payWorker: (workerId: string, amount: number) => Promise<void>;
   registerUser: (user: Profile) => Promise<void>;
-  addUser: (user: Profile) => Promise<void>;
+  addUser: (user: Profile) => Promise<any>;
   updateUser: (updatedUser: Profile) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
   updateAppSettings: (settings: AppSettings) => void;
   sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment' | 'project_request' | 'attendance_request' | 'advance_request' | 'work_report', metadata?: any) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
@@ -212,13 +213,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'user_locations' }, (payload) => {
-              // Realtime Location Update logic
+              // Enhanced Realtime Location Update
               const newLoc = payload.new as UserLocation;
               if (newLoc) {
                   setActiveLocations(prev => {
-                      // Remove old entry for this user and add new one if active
+                      // Update logic: Remove old, add new if active
                       const filtered = prev.filter(l => l.user_id !== newLoc.user_id);
-                      if (newLoc.is_active) return [...filtered, newLoc];
+                      if (newLoc.is_active) {
+                          return [...filtered, newLoc];
+                      }
                       return filtered;
                   });
               }
@@ -278,11 +281,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerUser = async (newUser: Profile) => {};
 
   const addUser = async (newUser: Profile) => {
-    if (!checkOnline()) return;
+    if (!checkOnline()) return { success: false };
     try {
       const cleanPhone = newUser.phone.replace(/\D/g, ''); 
-      if (cleanPhone.length < 11) {
-          throw new Error("মোবাইল নাম্বার সঠিক নয় (কমপক্ষে ১১ ডিজিট)");
+      
+      // Feature 2: Strict 11 Digit Validation
+      if (!/^01\d{9}$/.test(cleanPhone)) {
+          throw new Error("সঠিক মোবাইল নাম্বার দিন (১১ ডিজিট, 01 দিয়ে শুরু)");
+      }
+
+      // Feature 3: Check Duplicate Data
+      const existingUser = users.find(u => u.phone === cleanPhone);
+      if (existingUser) {
+          throw new Error("এই মোবাইল নাম্বারটি ইতিমধ্যে ব্যবহার করা হয়েছে।");
       }
 
       const email = cleanPhone + '@projectkhata.local';
@@ -327,7 +338,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
            full_name: newUser.full_name,
            avatar_url: newUser.avatar_url,
            company_name: newUser.company_name,
-           email: email
+           email: email,
+           created_at: new Date().toISOString() // Ensure created_at is captured
         };
         
         const { error: dbError } = await tempSupabase.from('profiles').upsert(profileData);
@@ -355,7 +367,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let msg = error.message;
       if(msg.includes("already registered")) msg = "এই মোবাইল নাম্বার দিয়ে ইতিমধ্যে অ্যাকাউন্ট খোলা আছে।";
       toast.error('ত্রুটি', msg);
-      return { success: false };
+      return { success: false, error: msg };
     }
   };
 
@@ -370,6 +382,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
   };
 
+  // Feature 1: Delete User
+  const deleteUser = async (userId: string) => {
+      if (!checkOnline()) return;
+      
+      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+      
+      if (error) {
+          toast.error('ডিলিট ব্যর্থ হয়েছে', error.message);
+          return;
+      }
+      
+      setUsers(prev => prev.filter(u => u.id !== userId));
+      // Remove from cache
+      const currentCached = loadFromCache<Profile[]>(CACHE_KEYS.USERS, []);
+      localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(currentCached.filter(u => u.id !== userId)));
+      
+      toast.success('প্রোফাইল সফলভাবে ডিলিট করা হয়েছে');
+  };
+
   const addProject = async (project: Project) => {
     if (!checkOnline()) return;
     
@@ -380,7 +411,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         total_area: project.total_area ? Number(project.total_area) : null,
         mistri_rate: project.mistri_rate ? Number(project.mistri_rate) : null,
         helper_rate: project.helper_rate ? Number(project.helper_rate) : null,
-        current_expense: 0
+        current_expense: 0,
+        created_at: new Date().toISOString() // Track creation for Smart Feed
     };
 
     const { error } = await supabase.from('projects').insert([sanitizedProject]);
@@ -703,6 +735,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.info('সেটিংস আপডেট হয়েছে');
   };
 
+  // Feature 6: Enhanced Realtime Location Logic
   const updateUserLocation = async (lat: number, lng: number, isActive: boolean) => {
       if (!user) return;
       await supabase.from('user_locations').upsert({
@@ -743,6 +776,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       registerUser,
       addUser,
       updateUser,
+      deleteUser, // Added function
       updateAppSettings,
       sendNotification,
       markNotificationAsRead,
