@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
@@ -159,10 +160,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
      else statusColor = 'bg-red-500';
   }
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
       setIsMenuOpen(false);
-      await logout();
-      navigate('/login');
+      logout(); // Call optimistic logout
+      // No need to navigate manually, AuthProvider state change triggers PrivateRoute redirect
   };
 
   const daysOfWeek = [
