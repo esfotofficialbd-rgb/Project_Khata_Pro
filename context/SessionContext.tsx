@@ -23,70 +23,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
   
-  // Initialize loading based on cache presence. 
-  // If we have a cached user, we don't block the UI (optimistic UI).
-  const [loading, setLoading] = useState(() => {
-      return !localStorage.getItem('pk_user_profile');
-  });
-
-  // Failsafe: Force loading to false after 5 seconds to prevent infinite spinner
-  useEffect(() => {
-      if (loading) {
-          const timer = setTimeout(() => {
-              setLoading(false);
-          }, 5000);
-          return () => clearTimeout(timer);
-      }
-  }, [loading]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
-    const initializeAuth = async () => {
+    const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        // 1. Check Local Cache First (Fast Load)
+        const cached = localStorage.getItem('pk_user_profile');
+        if (cached) {
+            setUserState(JSON.parse(cached));
+            setLoading(false);
+        }
 
+        // 2. Check Supabase Session (Verification)
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error || !session) {
             if (mounted) {
-                // If cache exists but session is invalid, clear cache and logout
+                // If cache exists but session is invalid, clear it
                 if (localStorage.getItem('pk_user_profile')) {
-                    setUserState(null);
-                    localStorage.removeItem('pk_user_profile');
+                    handleLocalLogout();
                 }
                 setLoading(false);
             }
             return;
         }
 
+        // 3. Fetch/Update Profile
         if (session.user) {
            await fetchProfile(session.user.id);
-        } else {
-           if (mounted) setLoading(false);
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
+        console.error("Auth init error:", error);
         if (mounted) setLoading(false);
       }
     };
 
-    initializeAuth();
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session?.user) {
-           await fetchProfile(session.user.id);
-        }
+      if (event === 'SIGNED_IN' && session?.user) {
+         await fetchProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
-        if (mounted) {
-           setUserState(null);
-           localStorage.removeItem('pk_user_profile');
-           setLoading(false);
-        }
-      } else if (event === 'INITIAL_SESSION') {
-        // Just ensuring loading is false if nothing else triggered it
-        if (!session && mounted) {
-            setLoading(false);
-        }
+         // Optionally handle automatic signout
       }
     });
 
@@ -104,14 +85,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } else if (data) {
+      if (data) {
         setUserState(data as Profile);
         localStorage.setItem('pk_user_profile', JSON.stringify(data));
       }
     } catch (error) {
-      console.error('Auth fetch error:', error);
+      console.error('Fetch profile error', error);
     } finally {
       setLoading(false);
     }
@@ -126,18 +105,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const handleLocalLogout = () => {
+      setUserState(null);
+      // Clear all app data except settings
+      const settings = localStorage.getItem('pk_settings');
+      localStorage.clear();
+      if(settings) localStorage.setItem('pk_settings', settings);
+  };
+
   const logout = async () => {
-    setLoading(true);
+    // 1. Clear Local Data immediately
+    handleLocalLogout();
+    
+    // 2. Attempt Server Signout (Don't wait too long)
     try {
         await supabase.auth.signOut();
     } catch (e) {
-        console.error("Sign out error", e);
-    } finally {
-        setUserState(null);
-        localStorage.removeItem('pk_user_profile');
-        localStorage.clear(); 
-        setLoading(false);
-    }
+        console.warn("Supabase signout notice:", e);
+    } 
+
+    // 3. HARD RELOAD - The ultimate fix for "stuck" states
+    // This forces the browser to clear memory and restart the app fresh
+    window.location.href = '/'; 
   };
 
   return (
@@ -152,4 +141,3 @@ export const useAuth = () => {
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
-    
