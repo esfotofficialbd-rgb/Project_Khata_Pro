@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from 'react';
+
+import React, { useState, useCallback, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/SessionContext';
 import { DataProvider } from './context/DataContext';
@@ -27,7 +28,59 @@ import { About } from './screens/About';
 import { SupervisorEntry } from './screens/SupervisorEntry';
 import { LiveTracking } from './screens/LiveTracking';
 import { SplashScreen } from './screens/SplashScreen';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, RefreshCcw } from 'lucide-react';
+
+// Error Boundary Types
+interface ErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+// Error Boundary Component
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 p-6 text-center">
+          <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-full mb-6 animate-pulse">
+             <AlertTriangle size={48} className="text-red-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">সাময়িক সমস্যা হয়েছে</h1>
+          <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-xs mx-auto text-sm leading-relaxed">
+            দুঃখিত, অ্যাপটিতে একটি অপ্রত্যাশিত ত্রুটি দেখা দিয়েছে। চিন্তা করবেন না, আপনার ডাটা সুরক্ষিত আছে।
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2 px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95"
+          >
+            <RefreshCcw size={20} />
+            রিলোড করুন
+          </button>
+          <p className="mt-8 text-xs text-slate-400 font-mono">Error Code: {this.state.error?.message?.slice(0, 30)}...</p>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
@@ -62,148 +115,155 @@ const RoleBasedProfile = () => {
 }
 
 const AppContent = () => {
+  const { user } = useAuth();
+  
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      
-      <Route path="/" element={
-        <PrivateRoute>
-          <Layout>
-            <RoleBasedHome />
-          </Layout>
-        </PrivateRoute>
-      } />
+    <ErrorBoundary>
+        {/* Force DataProvider to reset when user changes to prevent stale data */}
+        <DataProvider key={user ? user.id : 'guest'}> 
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            
+            <Route path="/" element={
+              <PrivateRoute>
+                <Layout>
+                  <RoleBasedHome />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      {/* Shared Routes */}
-      <Route path="/profile" element={
-        <PrivateRoute>
-          <Layout>
-             <RoleBasedProfile />
-          </Layout>
-        </PrivateRoute>
-      } />
-      
-      <Route path="/notifications" element={
-        <PrivateRoute>
-          <Layout>
-             <Notifications />
-          </Layout>
-        </PrivateRoute>
-      } />
+            {/* Shared Routes */}
+            <Route path="/profile" element={
+              <PrivateRoute>
+                <Layout>
+                   <RoleBasedProfile />
+                </Layout>
+              </PrivateRoute>
+            } />
+            
+            <Route path="/notifications" element={
+              <PrivateRoute>
+                <Layout>
+                   <Notifications />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      {/* App Settings & Info */}
-      <Route path="/settings" element={
-        <PrivateRoute>
-          <Layout>
-             <AppSettings />
-          </Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/support" element={
-        <PrivateRoute>
-          <Layout>
-             <Support />
-          </Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/about" element={
-        <PrivateRoute>
-          <Layout>
-             <About />
-          </Layout>
-        </PrivateRoute>
-      } />
+            {/* App Settings & Info */}
+            <Route path="/settings" element={
+              <PrivateRoute>
+                <Layout>
+                   <AppSettings />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/support" element={
+              <PrivateRoute>
+                <Layout>
+                   <Support />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/about" element={
+              <PrivateRoute>
+                <Layout>
+                   <About />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      {/* Contractor & Supervisor Routes */}
-      <Route path="/projects" element={
-        <PrivateRoute>
-          <Layout>
-             <Projects />
-          </Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/projects/:id" element={
-        <PrivateRoute>
-          <Layout>
-             <ProjectDetails />
-          </Layout>
-        </PrivateRoute>
-      } />
+            {/* Contractor & Supervisor Routes */}
+            <Route path="/projects" element={
+              <PrivateRoute>
+                <Layout>
+                   <Projects />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/projects/:id" element={
+              <PrivateRoute>
+                <Layout>
+                   <ProjectDetails />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      <Route path="/khata" element={
-        <PrivateRoute>
-          <Layout>
-            <Khata />
-          </Layout>
-        </PrivateRoute>
-      } />
-      
-      <Route path="/workers" element={
-        <PrivateRoute>
-          <Layout>
-            <WorkersList />
-          </Layout>
-        </PrivateRoute>
-      } />
-      <Route path="/workers/:id" element={
-        <PrivateRoute>
-          <Layout>
-             <WorkerDetails />
-          </Layout>
-        </PrivateRoute>
-      } />
+            <Route path="/khata" element={
+              <PrivateRoute>
+                <Layout>
+                  <Khata />
+                </Layout>
+              </PrivateRoute>
+            } />
+            
+            <Route path="/workers" element={
+              <PrivateRoute>
+                <Layout>
+                  <WorkersList />
+                </Layout>
+              </PrivateRoute>
+            } />
+            <Route path="/workers/:id" element={
+              <PrivateRoute>
+                <Layout>
+                   <WorkerDetails />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-       <Route path="/accounts" element={
-        <PrivateRoute>
-          <Layout>
-            <Accounts />
-          </Layout>
-        </PrivateRoute>
-      } />
-       <Route path="/reports" element={
-        <PrivateRoute>
-          <Layout>
-            <Reports />
-          </Layout>
-        </PrivateRoute>
-      } />
-      
-      <Route path="/tools" element={
-        <PrivateRoute>
-          <Layout>
-            <Tools />
-          </Layout>
-        </PrivateRoute>
-      } />
+             <Route path="/accounts" element={
+              <PrivateRoute>
+                <Layout>
+                  <Accounts />
+                </Layout>
+              </PrivateRoute>
+            } />
+             <Route path="/reports" element={
+              <PrivateRoute>
+                <Layout>
+                  <Reports />
+                </Layout>
+              </PrivateRoute>
+            } />
+            
+            <Route path="/tools" element={
+              <PrivateRoute>
+                <Layout>
+                  <Tools />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      {/* New Tracking Route */}
-      <Route path="/tracking" element={
-        <PrivateRoute>
-          <Layout>
-            <LiveTracking />
-          </Layout>
-        </PrivateRoute>
-      } />
+            {/* New Tracking Route */}
+            <Route path="/tracking" element={
+              <PrivateRoute>
+                <Layout>
+                  <LiveTracking />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      {/* Supervisor Specific Routes */}
-      <Route path="/entry" element={
-        <PrivateRoute>
-          <Layout>
-             <SupervisorEntry />
-          </Layout>
-        </PrivateRoute>
-      } />
+            {/* Supervisor Specific Routes */}
+            <Route path="/entry" element={
+              <PrivateRoute>
+                <Layout>
+                   <SupervisorEntry />
+                </Layout>
+              </PrivateRoute>
+            } />
 
-      {/* Worker Routes */}
-      <Route path="/history" element={
-        <PrivateRoute>
-          <Layout>
-             <WorkerHistory />
-          </Layout>
-        </PrivateRoute>
-      } />
-    </Routes>
+            {/* Worker Routes */}
+            <Route path="/history" element={
+              <PrivateRoute>
+                <Layout>
+                   <WorkerHistory />
+                </Layout>
+              </PrivateRoute>
+            } />
+          </Routes>
+        </DataProvider>
+    </ErrorBoundary>
   );
 };
 
@@ -218,17 +278,12 @@ const App = () => {
     <HashRouter>
       <ToastProvider>
         <AuthProvider>
-          <DataProvider>
             <div className="relative min-h-screen">
-              {/* Render AppContent immediately so it's ready behind the splash screen */}
               <AppContent />
-              
-              {/* Splash screen overlays the app until finished */}
               {showSplash && (
                 <SplashScreen onFinish={handleSplashFinish} />
               )}
             </div>
-          </DataProvider>
         </AuthProvider>
       </ToastProvider>
     </HashRouter>

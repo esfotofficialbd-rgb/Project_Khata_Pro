@@ -59,6 +59,7 @@ export const TRANSLATIONS = {
     daily_report: 'কাজের রিপোর্ট',
     site_entry: 'সাইট এন্ট্রি (নিজস্ব হাজিরা)',
     material_stock: 'স্টক / ম্যাটেরিয়াল',
+    live_map: 'লাইভ ম্যাপ',
     
     // Worker Dashboard
     total_work_days: 'মোট কাজের দিন',
@@ -108,19 +109,87 @@ export const TRANSLATIONS = {
     confirm_self_entry: 'এন্ট্রি নিশ্চিত করুন',
     you_are_present: 'আপনি আজ সাইটে উপস্থিত আছেন',
     
-    // Alerts
+    // Alerts & Misc
     due_alert: 'বকেয়া অ্যালার্ট',
     workers_total_due: 'কর্মীদের মোট বকেয়া:',
     pay_now: 'পরিশোধ করুন',
     last_7_days: 'গত ৭ দিনের আয়-ব্যয়',
     income: 'আয়',
     expenditure: 'ব্যয়',
-    
-    // Misc
     click_list: 'তালিকায় ক্লিক করুন',
-    warning_advance: 'সতর্কতা: এটি বকেয়ার চেয়ে বেশি। অতিরিক্ত টাকা অগ্রিম (Advance) হিসেবে গণ্য হবে।',
+    warning_advance: 'সতর্কতা: এটি বকেয়ার চেয়ে বেশি।',
     source_placeholder: 'উৎস (যেমন: বিল, স্ক্র্যাপ বিক্রি)',
     expense_placeholder: 'খরচের খাত (যেমন: গাড়ি ভাড়া)',
+
+    // Profile & Settings
+    financial_snapshot: 'আর্থিক সারসংক্ষেপ',
+    lifetime: 'লাইফটাইম',
+    pro_membership: 'প্রো মেম্বারশিপ',
+    valid_till: 'মেয়াদ',
+    contact_info: 'যোগাযোগের তথ্য',
+    mobile: 'মোবাইল',
+    email: 'ইমেইল',
+    delete_account: 'অ্যাকাউন্ট ডিলিট করুন',
+    action_irreversible: 'এই অ্যাকশনটি ফেরতযোগ্য নয়',
+    active_projects_stat: 'চলমান প্রজেক্ট',
+    total_workers_stat: 'মোট কর্মী',
+
+    // Accounts & Reports
+    current_cycle: 'চলতি সাইকেল',
+    all_time: 'সব সময়',
+    total_income_stat: 'মোট আয়',
+    total_expense_stat: 'মোট ব্যয়',
+    expense_breakdown: 'খরচের খাত',
+    labor_cost: 'লেবার খরচ (হাজিরা)',
+    material_other: 'ম্যাটেরিয়াল / অন্যান্য',
+    project_cost: 'প্রজেক্ট খরচ',
+    analytics_title: 'রিপোর্ট ও এনালাইটিক্স',
+
+    // Tools
+    construction_tools: 'কনস্ট্রাকশন টুলস',
+    brick_calc: 'ইটের হিসাব',
+    rod_calc: 'রডের হিসাব',
+    brick_calculator: 'ইটের ক্যালকুলেটর',
+    rod_weight: 'রডের ওজন',
+    calculate: 'হিসাব করুন',
+    wall_length: 'দেয়ালের দৈর্ঘ্য (ফুট)',
+    wall_height: 'দেয়ালের উচ্চতা (ফুট)',
+    wall_thickness: 'দেয়ালের চওড়া (ইঞ্চি)',
+    rod_size: 'রডের সাইজ (mm)',
+    rod_length: 'প্রতিটির দৈর্ঘ্য (ফুট)',
+    rod_quantity: 'পরিমাণ (সংখ্যা)',
+    required_bricks: 'প্রয়োজনীয় ইট',
+    total_weight: 'মোট ওজন',
+
+    // Projects
+    project_list_title: 'প্রজেক্ট তালিকা',
+    search_placeholder: 'প্রজেক্ট বা লোকেশন খুঁজুন...',
+    all_tab: 'সব',
+    active_tab: 'চলমান',
+    completed_tab: 'সমাপ্ত',
+    new_project: 'নতুন প্রজেক্ট',
+    client: 'ক্লায়েন্ট',
+    location: 'লোকেশন',
+    budget: 'বাজেট',
+    fixed: 'ফিক্সড',
+    daily: 'ডেইলি',
+    sqft: 'স্কয়ার ফিট',
+    details: 'বিস্তারিত',
+    cost_budget: 'খরচ / বাজেট',
+
+    // Support & About
+    support_center: 'সাপোর্ট সেন্টার',
+    call_us: 'কল করুন',
+    email_us: 'ইমেইল',
+    live_chat: 'লাইভ চ্যাট',
+    start_chat: 'চ্যাট শুরু করুন',
+    faq: 'সচরাচর জিজ্ঞাসা',
+    about_us: 'আমাদের সম্পর্কে',
+    privacy_policy: 'গোপনীয়তা নীতি',
+    terms_service: 'সেবাপ্রদান শর্তাবলী',
+    visit_website: 'ওয়েবসাইট ভিজিট করুন',
+    made_in: 'বাংলাদেশে তৈরি ❤️',
+    version: 'সংস্করণ'
   },
   en: {
     // Nav & General
@@ -177,6 +246,7 @@ export const TRANSLATIONS = {
     daily_report: 'Daily Report',
     site_entry: 'Site Entry (Self)',
     material_stock: 'Stock / Material',
+    live_map: 'Live Map',
 
     // Worker Dashboard
     total_work_days: 'Total Work Days',
@@ -226,18 +296,86 @@ export const TRANSLATIONS = {
     confirm_self_entry: 'Confirm Entry',
     you_are_present: 'You are present at site',
 
-    // Alerts
+    // Alerts & Misc
     due_alert: 'Due Alert',
     workers_total_due: 'Total Workers Due:',
     pay_now: 'Pay Now',
     last_7_days: 'Last 7 Days Income/Expense',
     income: 'Income',
     expenditure: 'Expense',
-
-    // Misc
     click_list: 'Click on list',
-    warning_advance: 'Warning: Amount exceeds due. Excess will be treated as Advance.',
+    warning_advance: 'Warning: Amount exceeds due.',
     source_placeholder: 'Source (e.g. Bill, Scrap Sale)',
     expense_placeholder: 'Expense Head (e.g. Transport)',
+
+    // Profile & Settings
+    financial_snapshot: 'Financial Snapshot',
+    lifetime: 'Lifetime',
+    pro_membership: 'Pro Membership',
+    valid_till: 'Valid till',
+    contact_info: 'Contact Info',
+    mobile: 'Mobile',
+    email: 'Email',
+    delete_account: 'Delete Account',
+    action_irreversible: 'This action is irreversible',
+    active_projects_stat: 'Active Projects',
+    total_workers_stat: 'Total Workers',
+
+    // Accounts & Reports
+    current_cycle: 'Current Cycle',
+    all_time: 'All Time',
+    total_income_stat: 'Total Income',
+    total_expense_stat: 'Total Expense',
+    expense_breakdown: 'Expense Breakdown',
+    labor_cost: 'Labor Cost',
+    material_other: 'Material / Other',
+    project_cost: 'Project Cost',
+    analytics_title: 'Reports & Analytics',
+
+    // Tools
+    construction_tools: 'Construction Tools',
+    brick_calc: 'Brick Calc',
+    rod_calc: 'Rod Calc',
+    brick_calculator: 'Brick Calculator',
+    rod_weight: 'Rod Weight',
+    calculate: 'Calculate',
+    wall_length: 'Wall Length (ft)',
+    wall_height: 'Wall Height (ft)',
+    wall_thickness: 'Wall Thickness (in)',
+    rod_size: 'Rod Size (mm)',
+    rod_length: 'Rod Length (ft)',
+    rod_quantity: 'Quantity',
+    required_bricks: 'Required Bricks',
+    total_weight: 'Total Weight',
+
+    // Projects
+    project_list_title: 'Project List',
+    search_placeholder: 'Search project or location...',
+    all_tab: 'All',
+    active_tab: 'Active',
+    completed_tab: 'Completed',
+    new_project: 'New Project',
+    client: 'Client',
+    location: 'Location',
+    budget: 'Budget',
+    fixed: 'Fixed',
+    daily: 'Daily',
+    sqft: 'Sqft',
+    details: 'Details',
+    cost_budget: 'Cost / Budget',
+
+    // Support & About
+    support_center: 'Support Center',
+    call_us: 'Call Us',
+    email_us: 'Email',
+    live_chat: 'Live Chat',
+    start_chat: 'Start Chat',
+    faq: 'FAQ',
+    about_us: 'About Us',
+    privacy_policy: 'Privacy Policy',
+    terms_service: 'Terms of Service',
+    visit_website: 'Visit Website',
+    made_in: 'Made in Bangladesh ❤️',
+    version: 'Version'
   }
 };
