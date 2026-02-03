@@ -1,3 +1,4 @@
+
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -34,8 +35,9 @@ export default defineConfig({
       }
     })
   ],
-  base: './', 
+  base: '/', 
   build: {
+    target: 'es2015',
     outDir: 'dist',
     sourcemap: false,
     chunkSizeWarningLimit: 1600,

@@ -18,6 +18,7 @@ export interface Profile {
   balance: number; // Due salary
   is_verified: boolean;
   avatar_url?: string;
+  created_at?: string;
 }
 
 export interface Project {
@@ -36,6 +37,7 @@ export interface Project {
   total_area?: number;
   mistri_rate?: number;
   helper_rate?: number;
+  created_at?: string;
 }
 
 export interface Attendance {
