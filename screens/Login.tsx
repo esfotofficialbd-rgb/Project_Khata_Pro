@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
@@ -23,22 +24,37 @@ export const Login = () => {
   const { user, setUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isMounted = useRef(true);
 
+  // Cleanup ref on unmount
   useEffect(() => {
+    isMounted.current = true;
+    
+    // Safety check: if user is already logged in, redirect
     if (user) {
-      navigate('/');
+        navigate('/', { replace: true });
     }
+
+    return () => { isMounted.current = false; };
   }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent double submit
+
     setError('');
     setLoading(true);
 
+    const timeoutDuration = 15000; // 15 seconds
+    const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("সার্ভার থেকে সাড়া পাওয়া যাচ্ছে না। দয়া করে ইন্টারনেট সংযোগ চেক করুন।")), timeoutDuration)
+    );
+
     try {
       let email = identifier.trim();
+      
+      // Formatting Logic
       if (role !== 'contractor') {
-         // Phone Number Logic
          if (!email.includes('@')) {
             const cleanPhone = email.replace(/\D/g, '');
             if (cleanPhone.length < 11) {
@@ -48,15 +64,26 @@ export const Login = () => {
          }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password.trim(),
-      });
+      // Race between login and timeout
+      const response: any = await Promise.race([
+          supabase.auth.signInWithPassword({
+            email: email,
+            password: password.trim(),
+          }),
+          timeoutPromise
+      ]);
 
-      if (error) throw error;
+      const { data, error: authError } = response;
 
-      if (data.user) {
-         // STRICT ROLE CHECKING
+      if (authError) {
+          if (authError.message === 'Invalid login credentials') {
+              throw new Error("ইমেইল বা পাসওয়ার্ড ভুল হয়েছে।");
+          }
+          throw authError;
+      }
+
+      if (data?.user) {
+         // Fetch Profile
          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -66,7 +93,7 @@ export const Login = () => {
          if (profileError) throw new Error("প্রোফাইল লোড করা যায়নি।");
 
          if (profile) {
-             // Validate if the user is logging in from the correct role tab
+             // Role Validation
              if (profile.role !== role) {
                  await supabase.auth.signOut();
                  
@@ -78,21 +105,28 @@ export const Login = () => {
                  throw new Error(`ভুল লগইন টাইপ! এটি একটি ${roleName} অ্যাকাউন্ট। দয়া করে সঠিক ট্যাব সিলেক্ট করুন।`);
              }
 
-             // OPTIMIZATION: Set user immediately to avoid redirect loops or waiting for background sync
-             setUser(profile as Profile);
-
-             toast.success('লগইন সফল হয়েছে!');
-             navigate('/');
+             if (isMounted.current) {
+                 setUser(profile as Profile);
+                 toast.success('লগইন সফল হয়েছে!');
+                 navigate('/', { replace: true });
+                 // Do NOT set loading false here, as unmount will happen
+                 return; 
+             }
          } else {
              await supabase.auth.signOut();
              throw new Error('প্রোফাইল পাওয়া যায়নি।');
          }
+      } else {
+          throw new Error('লগইন সেশন পাওয়া যায়নি।');
       }
+
     } catch (err: any) {
-      setError(err.message || 'লগইন ব্যর্থ হয়েছে।');
-      toast.error('ত্রুটি', err.message);
-    } finally {
-      setLoading(false);
+      console.error("Login Error:", err);
+      if (isMounted.current) {
+          setError(err.message || 'লগইন ব্যর্থ হয়েছে।');
+          toast.error('ত্রুটি', err.message);
+          setLoading(false);
+      }
     }
   };
 
@@ -102,9 +136,7 @@ export const Login = () => {
 
   const handleResetSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (role !== 'contractor') {
-          return;
-      }
+      if (role !== 'contractor') return;
       
       setResetLoading(true);
       try {
@@ -118,7 +150,7 @@ export const Login = () => {
       } catch (err: any) {
           toast.error('ব্যর্থ', err.message || 'পাসওয়ার্ড রিসেট লিংক পাঠানো যায়নি।');
       } finally {
-          setResetLoading(false);
+          if (isMounted.current) setResetLoading(false);
       }
   };
 

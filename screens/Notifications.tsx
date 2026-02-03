@@ -1,6 +1,8 @@
+
 import React from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
+import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Bell, Info, AlertTriangle, CheckCircle, Wallet, Check, ClipboardList, X, UserCheck, FileText, Clock, MapPin, ChevronRight, CheckCheck, Banknote } from 'lucide-react';
 import { Project } from '../types';
@@ -8,6 +10,7 @@ import { Project } from '../types';
 export const Notifications = () => {
   const { user } = useAuth();
   const { notifications, markNotificationAsRead, addProject, markAttendance, payWorker, users } = useData();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -71,45 +74,47 @@ export const Notifications = () => {
       myNotifications.forEach(n => {
           if(!n.is_read) markNotificationAsRead(n.id);
       });
+      toast.success('সব নোটিফিকেশন পড়া হয়েছে');
   };
 
   const handleApproveProject = (notificationId: string, projectData: Project) => {
-      addProject(projectData);
+      // Create fresh project instance, ensuring new ID if necessary (though DataContext generates it properly)
+      const newProject = { ...projectData, id: Date.now().toString() };
+      
+      addProject(newProject);
       markNotificationAsRead(notificationId);
-      alert('প্রজেক্টটি সফলভাবে তৈরি করা হয়েছে।');
+      toast.success('প্রজেক্টটি সফলভাবে তৈরি করা হয়েছে।');
   };
 
   const handleDeclineProject = (notificationId: string) => {
       if(window.confirm('আপনি কি এই অনুরোধটি বাতিল করতে চান?')) {
           markNotificationAsRead(notificationId);
+          toast.info('অনুরোধ বাতিল করা হয়েছে।');
       }
   }
 
   const handleApproveAttendance = (notificationId: string, data: any) => {
       markAttendance(data.workerId, 'P', data.projectId, data.date);
       markNotificationAsRead(notificationId);
-      alert('হাজিরা গ্রহণ করা হয়েছে।');
+      toast.success('হাজিরা গ্রহণ করা হয়েছে।');
   };
 
   const handleDeclineAttendance = (notificationId: string) => {
       markNotificationAsRead(notificationId);
+      toast.info('হাজিরা অনুরোধ বাতিল করা হয়েছে।');
   }
 
   const handleApproveAdvance = (notificationId: string, data: any) => {
      if(window.confirm(`আপনি কি ৳${data.amount} পেমেন্ট নিশ্চিত করছেন?`)) {
         payWorker(data.workerId, Number(data.amount));
         markNotificationAsRead(notificationId);
-        alert('পেমেন্ট সফল হয়েছে এবং ব্যালেন্স আপডেট করা হয়েছে।');
+        toast.success('পেমেন্ট সফল হয়েছে এবং ব্যালেন্স আপডেট করা হয়েছে।');
      }
   };
 
   const handleDeclineAdvance = (notificationId: string) => {
      markNotificationAsRead(notificationId);
-  };
-
-  const getWorkerLiveBalance = (workerId: string) => {
-      const w = users.find(u => u.id === workerId);
-      return w ? w.balance : 0;
+     toast.info('অগ্রিম অনুরোধ বাতিল করা হয়েছে।');
   };
 
   return (
@@ -153,6 +158,8 @@ export const Notifications = () => {
                 const amountMatch = notification.message.match(/৳\s?([0-9,]+)/);
                 const displayAmount = amountMatch ? amountMatch[0] : null;
 
+                const isRequest = ['project_request', 'attendance_request', 'advance_request'].includes(notification.type);
+
                 return (
                    <React.Fragment key={notification.id}>
                       {showHeader && (
@@ -160,13 +167,13 @@ export const Notifications = () => {
                       )}
                       
                       <div 
-                         className={`relative p-4 rounded-2xl border transition-all duration-300 active:scale-[0.99] ${
+                         className={`relative p-4 rounded-2xl border transition-all duration-300 ${
                             !notification.is_read 
                             ? `bg-white dark:bg-slate-900 border-${themeColor}-200 dark:border-${themeColor}-900 shadow-lg shadow-${themeColor}-50 dark:shadow-none` 
-                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-80'
+                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-90'
                          }`}
                       >
-                         {!notification.is_read && (
+                         {!notification.is_read && !isRequest && (
                             <span className={`absolute top-4 right-4 w-2 h-2 rounded-full shadow-sm animate-pulse bg-${themeColor}-500`}></span>
                          )}
                          
@@ -189,12 +196,40 @@ export const Notifications = () => {
                                   </div>
                                ) : (
                                   /* Standard Layout */
-                                  <p className={`text-sm leading-relaxed ${!notification.is_read ? 'text-slate-800 dark:text-white font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
-                                     {notification.message}
-                                  </p>
+                                  <div className="pr-4">
+                                     <p className={`text-sm leading-relaxed ${!notification.is_read ? 'text-slate-800 dark:text-white font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
+                                        {notification.message}
+                                     </p>
+                                  </div>
                                )}
                                
-                               {/* ... Action Cards Logic ... */}
+                               {/* Action Cards Logic */}
+                               {isRequest && !notification.is_read && (
+                                  <div className="mt-3 flex gap-3">
+                                     <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if(notification.type === 'project_request') handleApproveProject(notification.id, notification.metadata);
+                                            if(notification.type === 'attendance_request') handleApproveAttendance(notification.id, notification.metadata);
+                                            if(notification.type === 'advance_request') handleApproveAdvance(notification.id, notification.metadata);
+                                        }}
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-100 dark:shadow-none active:scale-95"
+                                     >
+                                        গ্রহণ করুন
+                                     </button>
+                                     <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if(notification.type === 'project_request') handleDeclineProject(notification.id);
+                                            if(notification.type === 'attendance_request') handleDeclineAttendance(notification.id);
+                                            if(notification.type === 'advance_request') handleDeclineAdvance(notification.id);
+                                        }}
+                                        className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-slate-200 dark:border-slate-700"
+                                     >
+                                        বাতিল
+                                     </button>
+                                  </div>
+                               )}
                                
                                <div className="flex items-center justify-between mt-3 border-t border-slate-50 dark:border-slate-800 pt-2">
                                   <div className="flex items-center gap-1 text-slate-400">
@@ -208,8 +243,8 @@ export const Notifications = () => {
                             </div>
                          </div>
                          
-                         {/* Mark as read overlay */}
-                         {['project_request', 'attendance_request', 'advance_request'].indexOf(notification.type) === -1 && !notification.is_read && (
+                         {/* Mark as read overlay - Only for non-request types or already read ones */}
+                         {!isRequest && !notification.is_read && (
                             <button 
                               onClick={() => markNotificationAsRead(notification.id)}
                               className="absolute inset-0 w-full h-full cursor-pointer z-0"

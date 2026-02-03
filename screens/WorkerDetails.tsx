@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
-import { ArrowLeft, Phone, Calendar, Briefcase, DollarSign, User, CheckCircle, Wallet, X, Edit2, Camera, Clock, MessageSquare, TrendingUp, UserCog, HardHat, ShieldCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, Calendar, Briefcase, DollarSign, User, CheckCircle, Wallet, X, Edit2, Camera, Clock, MessageSquare, TrendingUp, UserCog, HardHat, ShieldCheck, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { Profile } from '../types';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../supabaseClient';
@@ -12,10 +12,11 @@ export const WorkerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth(); // Logged in user (Contractor)
-  const { users, attendance, payWorker, updateUser, transactions } = useData();
+  const { users, attendance, payWorker, updateUser, transactions, deleteUser } = useData();
   const { toast } = useToast();
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [payAmount, setPayAmount] = useState('');
   const [activeHistoryTab, setActiveHistoryTab] = useState<'attendance' | 'payment'>('attendance');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -30,7 +31,7 @@ export const WorkerDetails = () => {
     return <div className="p-10 text-center text-slate-500 font-bold mt-10">কর্মী পাওয়া যায়নি</div>;
   }
 
-  // Determine Role & Theme (Hardcoded classes for stability)
+  // Determine Role & Theme
   const isSupervisorProfile = worker.role === 'supervisor';
   
   const theme = isSupervisorProfile ? {
@@ -42,7 +43,6 @@ export const WorkerDetails = () => {
       text: 'text-purple-600 dark:text-purple-400',
       border: 'border-purple-200 dark:border-purple-800',
       icon: UserCog,
-      // Input & Button Classes
       inputFocus: 'focus:border-purple-500',
       btnBg: 'bg-purple-600 hover:bg-purple-700',
       btnShadow: 'shadow-purple-200',
@@ -58,7 +58,6 @@ export const WorkerDetails = () => {
       text: 'text-blue-600 dark:text-blue-400',
       border: 'border-blue-200 dark:border-blue-800',
       icon: HardHat,
-      // Input & Button Classes
       inputFocus: 'focus:border-blue-500',
       btnBg: 'bg-blue-600 hover:bg-blue-700',
       btnShadow: 'shadow-blue-200',
@@ -67,7 +66,6 @@ export const WorkerDetails = () => {
       shadowColor: 'shadow-blue-900/20'
   };
 
-  // Calculate Stats
   const workerAttendance = attendance.filter(a => a.worker_id === id);
   const workerPayments = transactions.filter(t => t.related_user_id === id && t.type === 'salary');
   
@@ -91,6 +89,12 @@ export const WorkerDetails = () => {
       
       setPayAmount('');
     }
+  };
+
+  const handleDeleteWorker = async () => {
+      await deleteUser(worker.id);
+      setIsDeleteModalOpen(false);
+      navigate('/workers');
   };
 
   const openEditModal = () => {
@@ -133,14 +137,10 @@ export const WorkerDetails = () => {
               canvas.toBlob(async (blob) => {
                   if (blob) {
                       const fileName = `avatars/${worker.id}-${Date.now()}.jpg`;
-                      
                       try {
                           const { data, error } = await supabase.storage
                               .from('images')
-                              .upload(fileName, blob, {
-                                  contentType: 'image/jpeg',
-                                  upsert: true
-                              });
+                              .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
 
                           if (error) throw error;
 
@@ -151,12 +151,9 @@ export const WorkerDetails = () => {
                           setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
                           toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
                       } catch (uploadError) {
-                          console.warn("Storage upload failed, falling back to Base64:", uploadError);
-                          // Fallback to Base64
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                              const base64String = reader.result as string;
-                              setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                              setFormData(prev => ({ ...prev, avatar_url: reader.result as string }));
                               toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
                           };
                           reader.readAsDataURL(blob);
@@ -174,7 +171,6 @@ export const WorkerDetails = () => {
       };
       img.src = objectUrl;
     }
-    
     if (e.target) e.target.value = '';
   };
 
@@ -193,7 +189,6 @@ export const WorkerDetails = () => {
        
        {/* Premium Header Design */}
        <div className={`relative h-64 bg-gradient-to-br ${theme.gradient} overflow-hidden`}>
-          {/* Abstract Texture */}
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
           <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white opacity-10 rounded-full blur-[80px]"></div>
           
@@ -204,17 +199,23 @@ export const WorkerDetails = () => {
              <h1 className="text-sm font-bold uppercase tracking-widest opacity-80">
                 {isSupervisorProfile ? 'সাইট সুপারভাইজার' : 'সাইট কর্মী'}
              </h1>
-             <button onClick={openEditModal} className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors backdrop-blur-md shadow-sm border border-white/10">
-                <Edit2 size={20} />
-             </button>
+             
+             <div className="flex gap-2">
+                 {/* Feature 1: Edit & Delete Buttons */}
+                 <button onClick={openEditModal} className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors backdrop-blur-md shadow-sm border border-white/10">
+                    <Edit2 size={20} />
+                 </button>
+                 <button onClick={() => setIsDeleteModalOpen(true)} className="p-3 bg-red-500/20 rounded-full hover:bg-red-500/40 transition-colors backdrop-blur-md shadow-sm border border-red-500/30 text-red-200">
+                    <Trash2 size={20} />
+                 </button>
+             </div>
           </div>
        </div>
 
-       {/* Floating Profile Card - Fixed Clipping Issue */}
+       {/* Floating Profile Card */}
        <div className="px-4 -mt-32 relative z-10">
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-100 dark:border-slate-800 p-6 pt-0 text-center relative flex flex-col items-center">
              
-             {/* Profile Pic - Positioned Absolutely to avoid clipping */}
              <div className="relative -mt-16 mb-3">
                <div className={`absolute -inset-1 bg-gradient-to-b ${isSupervisorProfile ? 'from-purple-500 to-indigo-500' : 'from-blue-500 to-slate-500'} rounded-full blur-sm opacity-50`}></div>
                <img 
@@ -242,7 +243,6 @@ export const WorkerDetails = () => {
                 </span>
              </div>
 
-             {/* Tactile Quick Actions */}
              <div className="grid grid-cols-3 gap-3 w-full">
                 <a href={`tel:${worker.phone}`} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all border border-slate-100 dark:border-slate-700 active:scale-95 group">
                    <div className="p-2.5 bg-white dark:bg-slate-700 rounded-full text-blue-600 dark:text-blue-400 shadow-sm group-hover:scale-110 transition-transform">
@@ -266,13 +266,10 @@ export const WorkerDetails = () => {
           </div>
        </div>
 
-       {/* Financial Stats - Premium Gradient Card */}
+       {/* Financial Stats */}
        <div className="px-4 mt-4">
           <div className={`${theme.cardGradient} rounded-[2.2rem] p-6 text-white flex justify-between items-center shadow-xl ${theme.shadowColor} dark:shadow-none relative overflow-hidden border border-white/10`}>
-             {/* Background Texture */}
              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
-             
-             {/* Neon Glow Effects */}
              <div className={`absolute right-0 bottom-0 w-32 h-32 bg-white rounded-full blur-[60px] opacity-10 -mr-10 -mb-10`}></div>
              
              <div className="relative z-10">
@@ -310,7 +307,7 @@ export const WorkerDetails = () => {
           </div>
        </div>
 
-       {/* History Section with Tabs */}
+       {/* History Section */}
        <div className="px-4 mt-6">
           <div className="flex bg-slate-200 dark:bg-slate-800 p-1.5 rounded-2xl mb-4 border border-slate-200 dark:border-slate-700">
             <button 
@@ -430,6 +427,31 @@ export const WorkerDetails = () => {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm transition-opacity" onClick={() => setIsDeleteModalOpen(false)}></div>
+           <div className="bg-white dark:bg-slate-900 w-full max-w-xs relative z-10 p-6 rounded-[2.5rem] shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800 text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 dark:text-red-500">
+                 <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">আপনি কি নিশ্চিত?</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+                 এই কর্মীকে ডিলিট করলে তার সকল ব্যক্তিগত তথ্য মুছে যাবে, তবে হাজিরা ও পেমেন্ট রেকর্ড থাকবে।
+              </p>
+              
+              <div className="flex gap-3">
+                 <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 transition-colors">
+                    বাতিল করুন
+                 </button>
+                 <button onClick={handleDeleteWorker} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-200 dark:shadow-none">
+                    ডিলিট করুন
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -447,7 +469,7 @@ export const WorkerDetails = () => {
                  <div className="flex flex-col items-center mb-6">
                     <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                        <img 
-                         src={formData.avatar_url} 
+                         src={formData.avatar_url || worker.avatar_url} 
                          className="w-24 h-24 rounded-full border-[4px] border-slate-100 dark:border-slate-800 object-cover transition-opacity" 
                          alt="Profile" 
                          style={{ opacity: isProcessingImage ? 0.5 : 1 }}

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';

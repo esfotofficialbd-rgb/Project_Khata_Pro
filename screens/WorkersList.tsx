@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Search, Phone, Briefcase, UserCog, HardHat, X, ChevronDown, CheckCircle, Plus, MessageSquare } from 'lucide-react';
+import { Search, Phone, Briefcase, UserCog, HardHat, X, ChevronDown, CheckCircle, Plus, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
 import { Profile } from '../types';
 
 export const WorkersList = () => {
@@ -13,6 +14,8 @@ export const WorkersList = () => {
   const [activeTab, setActiveTab] = useState<'worker' | 'supervisor'>('worker');
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   
   // If user is supervisor, they can only manage workers
   const isSupervisor = user?.role === 'supervisor';
@@ -59,6 +62,7 @@ export const WorkersList = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrorMsg('');
   };
 
   const getPasswordPreview = () => {
@@ -72,9 +76,16 @@ export const WorkersList = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setErrorMsg('');
 
-    // Sanitize phone number (remove non-digits)
+    // Feature 2: Strict Phone Validation Check (Client Side)
     const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (cleanPhone.length !== 11 || !cleanPhone.startsWith('01')) {
+        setErrorMsg('সঠিক ১১ ডিজিটের মোবাইল নাম্বার দিন (যেমন: 017...)');
+        setIsSubmitting(false);
+        return;
+    }
 
     const newUser: Profile = {
       id: Date.now().toString(), // Temp ID, will be replaced by Auth ID
@@ -113,7 +124,10 @@ export const WorkersList = () => {
           payment_type: 'daily',
           project_id: ''
         });
+    } else {
+        if(result && result.error) setErrorMsg(result.error);
     }
+    setIsSubmitting(false);
   };
 
   // Input Class (Using Static Theme Object)
@@ -257,6 +271,13 @@ export const WorkersList = () => {
                 </div>
               )}
 
+              {errorMsg && (
+                  <div className="mb-4 bg-red-50 border border-red-100 p-3 rounded-xl flex items-center gap-2 text-red-600 animate-pulse">
+                      <AlertTriangle size={16} />
+                      <p className="text-xs font-bold">{errorMsg}</p>
+                  </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className={labelClass}>নাম</label>
@@ -389,9 +410,10 @@ export const WorkersList = () => {
 
                 <button 
                   type="submit" 
-                  className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg mt-4 transition-all active:scale-95 bg-gradient-to-r ${formRole === 'worker' ? 'from-emerald-600 to-teal-600 shadow-emerald-200' : 'from-purple-600 to-indigo-600 shadow-purple-200'}`}
+                  disabled={isSubmitting}
+                  className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg mt-4 transition-all active:scale-95 bg-gradient-to-r ${formRole === 'worker' ? 'from-emerald-600 to-teal-600 shadow-emerald-200' : 'from-purple-600 to-indigo-600 shadow-purple-200'} flex items-center justify-center gap-2`}
                 >
-                   {formRole === 'worker' ? 'শ্রমিক যুক্ত করুন' : 'সুপারভাইজার যুক্ত করুন'}
+                   {isSubmitting ? <Loader2 className="animate-spin" size={20}/> : (formRole === 'worker' ? 'শ্রমিক যুক্ত করুন' : 'সুপারভাইজার যুক্ত করুন')}
                 </button>
               </form>
            </div>

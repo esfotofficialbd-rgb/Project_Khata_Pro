@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, User, Navigation, RefreshCw, Clock } from 'lucide-react';
 
 export const LiveTracking = () => {
-  const { activeLocations, users } = useData();
+  const { activeLocations, users, refreshData, isLoadingData } = useData();
   const navigate = useNavigate();
   const [refreshKey, setRefreshKey] = useState(0);
 
   const handleRefresh = () => {
+      refreshData();
       setRefreshKey(prev => prev + 1);
   };
 
@@ -27,6 +29,7 @@ export const LiveTracking = () => {
 
       if (diffInSeconds < 60) return 'এইমাত্র';
       if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} মিনিট আগে`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ঘণ্টা আগে`;
       return date.toLocaleTimeString('bn-BD', {hour: '2-digit', minute:'2-digit'});
   };
 
@@ -41,7 +44,7 @@ export const LiveTracking = () => {
         </div>
         <button 
            onClick={handleRefresh}
-           className="p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors"
+           className={`p-2.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors ${isLoadingData ? 'animate-spin' : ''}`}
         >
            <RefreshCw size={18} />
         </button>
@@ -76,7 +79,7 @@ export const LiveTracking = () => {
                                 <div>
                                     <h3 className="font-bold text-slate-800 dark:text-white text-sm">{worker.full_name}</h3>
                                     <p className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
-                                        <Clock size={10} /> {formatTime(loc.last_updated)}
+                                        <Clock size={10} /> আপডেট: {formatTime(loc.last_updated)}
                                     </p>
                                 </div>
                             </div>
@@ -85,7 +88,7 @@ export const LiveTracking = () => {
                                className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors flex flex-col items-center gap-1 min-w-[70px]"
                             >
                                 <Navigation size={18} />
-                                <span className="text-[9px] font-bold">ম্যাপ দেখুন</span>
+                                <span className="text-[9px] font-bold">ম্যাপ</span>
                             </button>
                         </div>
                     );

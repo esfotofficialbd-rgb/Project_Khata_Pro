@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin } from 'lucide-react';
+import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin, UserPlus } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
 import { Transaction } from '../types';
 import { useAuth } from '../context/SessionContext';
@@ -36,12 +36,12 @@ export const ContractorDashboard = () => {
   const activeProjects = projects.filter(p => p.status === 'active').length;
   const workers = users.filter(u => u.role === 'worker' || u.role === 'supervisor');
 
-  // --- SMART FEED LOGIC ---
+  // --- SMART FEED LOGIC (Updated Feature 4) ---
   const feedItems = useMemo(() => {
      let items: any[] = [];
 
      // 1. Total Due Alert (If high)
-     if (stats.totalDue > 0) {
+     if (stats.totalDue > 5000) {
         items.push({
             id: 'due-alert',
             title: 'বকেয়া অ্যালার্ট',
@@ -53,30 +53,90 @@ export const ContractorDashboard = () => {
         });
      }
 
-     // 2. Today's Expense
-     items.push({
-        id: 'daily-expense',
-        title: 'আজকের খরচ',
-        desc: `আজ মোট খরচ হয়েছে: ৳${stats.totalExpense.toLocaleString()}`,
-        icon: TrendingUp,
-        color: 'text-blue-600 dark:text-blue-400',
-        bg: 'bg-blue-50 dark:bg-blue-900/30',
-        border: 'border-blue-100 dark:border-blue-800'
+     // 2. New Users Joined (Last 3 days)
+     const recentUsers = users.filter(u => {
+         // Assuming users have created_at, fallback to false if not present yet
+         if (!u.created_at) return false;
+         const created = new Date(u.created_at);
+         const threeDaysAgo = new Date();
+         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+         return created > threeDaysAgo && u.role !== 'contractor';
      });
 
-     // 3. Attendance
-     items.push({
-        id: 'daily-attendance',
-        title: 'সাইট উপস্থিতি',
-        desc: `আজ ${stats.totalPresent} জন কর্মী উপস্থিত আছেন।`,
-        icon: Users,
-        color: 'text-emerald-600 dark:text-emerald-400',
-        bg: 'bg-emerald-50 dark:bg-emerald-900/30',
-        border: 'border-emerald-100 dark:border-emerald-800'
+     recentUsers.slice(0, 2).forEach(u => {
+         items.push({
+             id: `new-user-${u.id}`,
+             title: `নতুন ${u.role === 'worker' ? 'কর্মী' : 'সুপারভাইজার'}`,
+             desc: `${u.full_name} টিমে যুক্ত হয়েছেন।`,
+             icon: UserPlus,
+             color: 'text-purple-600 dark:text-purple-400',
+             bg: 'bg-purple-50 dark:bg-purple-900/30',
+             border: 'border-purple-100 dark:border-purple-800'
+         });
      });
+
+     // 3. New Projects (Last 7 days)
+     const recentProjects = projects.filter(p => {
+         if(!p.created_at) return false;
+         const created = new Date(p.created_at);
+         const weekAgo = new Date();
+         weekAgo.setDate(weekAgo.getDate() - 7);
+         return created > weekAgo;
+     });
+
+     recentProjects.slice(0, 1).forEach(p => {
+         items.push({
+             id: `new-project-${p.id}`,
+             title: 'নতুন প্রজেক্ট',
+             desc: `${p.project_name} শুরু হয়েছে।`,
+             icon: Briefcase,
+             color: 'text-blue-600 dark:text-blue-400',
+             bg: 'bg-blue-50 dark:bg-blue-900/30',
+             border: 'border-blue-100 dark:border-blue-800'
+         });
+     });
+
+     // 4. Today's Expense
+     if(stats.totalExpense > 0) {
+        items.push({
+            id: 'daily-expense',
+            title: 'আজকের খরচ',
+            desc: `আজ মোট খরচ হয়েছে: ৳${stats.totalExpense.toLocaleString()}`,
+            icon: TrendingUp,
+            color: 'text-rose-600 dark:text-rose-400',
+            bg: 'bg-rose-50 dark:bg-rose-900/30',
+            border: 'border-rose-100 dark:border-rose-800'
+        });
+     }
+
+     // 5. Attendance Summary
+     if(stats.totalPresent > 0) {
+        items.push({
+            id: 'daily-attendance',
+            title: 'সাইট উপস্থিতি',
+            desc: `আজ ${stats.totalPresent} জন কর্মী উপস্থিত আছেন।`,
+            icon: Users,
+            color: 'text-emerald-600 dark:text-emerald-400',
+            bg: 'bg-emerald-50 dark:bg-emerald-900/30',
+            border: 'border-emerald-100 dark:border-emerald-800'
+        });
+     }
+
+     // Fallback
+     if(items.length === 0) {
+         items.push({
+             id: 'welcome',
+             title: 'স্বাগতম',
+             desc: 'আপনার প্রজেক্ট ম্যানেজমেন্ট ড্যাশবোর্ডে স্বাগতম।',
+             icon: Sun,
+             color: 'text-orange-600',
+             bg: 'bg-orange-50',
+             border: 'border-orange-100'
+         });
+     }
 
      return items;
-  }, [stats]);
+  }, [stats, users, projects]);
 
   // Feed Auto-Rotation
   useEffect(() => {
