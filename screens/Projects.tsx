@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
@@ -6,7 +7,7 @@ import { MapPin, Search, Ruler, Clock, Coins, X, CheckCircle, Calculator, User, 
 import { Project } from '../types';
 
 export const Projects = () => {
-  const { projects, addProject, requestProject } = useData();
+  const { projects, addProject, requestProject, t } = useData();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -107,7 +108,7 @@ export const Projects = () => {
          <div className="flex items-center justify-between mb-4">
             <h2 className={`text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2`}>
                <LayoutTemplate className={isSupervisor ? "text-purple-600" : "text-blue-600"} />
-               প্রজেক্ট তালিকা
+               {t('project_list_title')}
             </h2>
             <button 
                onClick={() => setIsModalOpen(true)}
@@ -121,7 +122,7 @@ export const Projects = () => {
             <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
             <input 
                type="text"
-               placeholder="প্রজেক্ট বা লোকেশন খুঁজুন..."
+               placeholder={t('search_placeholder')}
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
                className={`w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-${themeColor}-500 outline-none text-sm transition-all text-slate-800 dark:text-white placeholder-slate-400 font-medium`}
@@ -139,7 +140,7 @@ export const Projects = () => {
                      : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50'
                   }`}
                >
-                  {tab === 'all' ? 'সব প্রজেক্ট' : tab === 'active' ? 'চলমান' : 'সমাপ্ত'}
+                  {tab === 'all' ? t('all_tab') : tab === 'active' ? t('active_tab') : t('completed_tab')}
                </button>
             ))}
          </div>
@@ -158,9 +159,9 @@ export const Projects = () => {
             const progress = project.budget_amount > 0 ? (project.current_expense / project.budget_amount) * 100 : 0;
             
             // Refined Color Configs
-            let typeConfig = { label: 'ফিক্সড', icon: Coins, bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-100 dark:border-indigo-800' };
-            if (project.project_type === 'daily') typeConfig = { label: 'ডেইলি', icon: Clock, bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-800' };
-            if (project.project_type === 'sqft') typeConfig = { label: 'স্কয়ার ফিট', icon: Ruler, bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-100 dark:border-cyan-800' };
+            let typeConfig = { label: t('fixed'), icon: Coins, bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-100 dark:border-indigo-800' };
+            if (project.project_type === 'daily') typeConfig = { label: t('daily'), icon: Clock, bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-100 dark:border-amber-800' };
+            if (project.project_type === 'sqft') typeConfig = { label: t('sqft'), icon: Ruler, bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-100 dark:border-cyan-800' };
 
             return (
               <div 
@@ -190,7 +191,7 @@ export const Projects = () => {
                 <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 border border-slate-100 dark:border-slate-800 mb-4">
                    <div className="flex justify-between items-end mb-2">
                       <div>
-                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">খরচ / বাজেট</p>
+                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">{t('cost_budget')}</p>
                          <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
                             ৳ {project.current_expense.toLocaleString()} 
                             {project.budget_amount > 0 && <span className="text-slate-400 text-xs font-medium"> / {project.budget_amount.toLocaleString()}</span>}
@@ -220,7 +221,7 @@ export const Projects = () => {
                       ))}
                    </div>
                    <div className={`flex items-center gap-1 text-slate-400 font-bold group-hover:text-${themeColor}-600 transition-colors bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-lg`}>
-                      বিস্তারিত <ChevronRight size={14} />
+                      {t('details')} <ChevronRight size={14} />
                    </div>
                 </div>
               </div>
@@ -234,16 +235,16 @@ export const Projects = () => {
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)}></div>
            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-md relative z-10 p-8 shadow-2xl animate-scale-up max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-slate-800">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">নতুন প্রজেক্ট</h3>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white">{t('new_project')}</h3>
                 <button onClick={() => setIsModalOpen(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full hover:bg-slate-200 text-slate-500"><X size={20}/></button>
               </div>
 
               {/* Mode Selector */}
               <div className="grid grid-cols-3 gap-2 mb-6 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700">
                  {[
-                    { id: 'daily', label: 'ডেইলি', icon: Clock },
-                    { id: 'fixed', label: 'ফিক্সড', icon: Coins },
-                    { id: 'sqft', label: 'স্কয়ার ফিট', icon: Ruler }
+                    { id: 'daily', label: t('daily'), icon: Clock },
+                    { id: 'fixed', label: t('fixed'), icon: Coins },
+                    { id: 'sqft', label: t('sqft'), icon: Ruler }
                  ].map((mode) => (
                     <button 
                        key={mode.id}
@@ -275,7 +276,7 @@ export const Projects = () => {
                    </div>
                    <div className="grid grid-cols-2 gap-3">
                      <div>
-                       <label className={labelClass}>ক্লায়েন্ট</label>
+                       <label className={labelClass}>{t('client')}</label>
                        <input 
                          name="client_name"
                          required
@@ -286,7 +287,7 @@ export const Projects = () => {
                        />
                      </div>
                      <div>
-                       <label className={labelClass}>মোবাইল</label>
+                       <label className={labelClass}>{t('mobile')}</label>
                        <input 
                          name="client_phone"
                          required
@@ -298,7 +299,7 @@ export const Projects = () => {
                      </div>
                    </div>
                    <div>
-                     <label className={labelClass}>লোকেশন</label>
+                     <label className={labelClass}>{t('location')}</label>
                      <input 
                        name="location"
                        value={formData.location}
@@ -344,7 +345,7 @@ export const Projects = () => {
 
                 {projectMode === 'fixed' && (
                    <div className="pt-2">
-                      <label className={labelClass}>ফিক্সড বাজেট</label>
+                      <label className={labelClass}>{t('budget')}</label>
                       <div className="relative">
                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
                          <input 

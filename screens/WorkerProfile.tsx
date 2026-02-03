@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
@@ -45,11 +46,10 @@ export const WorkerProfile = () => {
     if (file) {
       setIsProcessingImage(true);
       
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      
-      img.onload = () => {
-          try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
               const canvas = document.createElement('canvas');
               const MAX_WIDTH = 500;
               let width = img.width;
@@ -86,29 +86,21 @@ export const WorkerProfile = () => {
                           setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
                           toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
                       } catch (uploadError) {
-                          console.warn("Storage upload failed, falling back to Base64:", uploadError);
+                          console.warn("Storage upload failed, fallback to Base64:", uploadError);
                           
                           // Fallback to Base64
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                              const base64String = reader.result as string;
-                              setFormData(prev => ({ ...prev, avatar_url: base64String }));
-                              toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
-                          };
-                          reader.readAsDataURL(blob);
+                          const base64String = canvas.toDataURL('image/jpeg', 0.7);
+                          setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                          toast.success('ছবি সেভ হয়েছে');
                       } finally {
                           setIsProcessingImage(false);
                       }
                   }
-              }, 'image/jpeg', 0.8);
-
-          } catch (error: any) {
-              console.error(error);
-              toast.error('ছবি আপলোডে সমস্যা', error.message);
-              setIsProcessingImage(false);
-          }
+              }, 'image/jpeg', 0.7);
+          };
+          img.src = event.target?.result as string;
       };
-      img.src = objectUrl;
+      reader.readAsDataURL(file);
     }
     
     // Allow re-selecting same file
@@ -341,7 +333,7 @@ export const WorkerProfile = () => {
                 <div className="flex flex-col items-center mb-6">
                    <div className="relative group" onClick={() => fileInputRef.current?.click()}>
                       <img 
-                        src={formData.avatar_url} 
+                        src={formData.avatar_url || user.avatar_url} 
                         className="w-28 h-28 rounded-full border-4 border-slate-100 dark:border-slate-800 object-cover shadow-sm transition-opacity" 
                         alt="Profile" 
                         style={{ opacity: isProcessingImage ? 0.5 : 1 }}

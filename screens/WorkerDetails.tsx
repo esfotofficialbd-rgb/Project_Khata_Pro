@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useData } from '../context/DataContext';
@@ -201,7 +202,7 @@ export const WorkerDetails = () => {
                 <ArrowLeft size={22} />
              </button>
              <h1 className="text-sm font-bold uppercase tracking-widest opacity-80">
-                {isSupervisorProfile ? 'সাইট সুপারভাইজার' : 'সাইট শ্রমিক'}
+                {isSupervisorProfile ? 'সাইট সুপারভাইজার' : 'সাইট কর্মী'}
              </h1>
              <button onClick={openEditModal} className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors backdrop-blur-md shadow-sm border border-white/10">
                 <Edit2 size={20} />

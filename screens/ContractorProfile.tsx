@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
@@ -9,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 export const ContractorProfile = () => {
   const { user, setUser, logout } = useAuth();
-  const { projects, users, updateUser, transactions, attendance } = useData();
+  const { projects, users, updateUser, transactions, attendance, t } = useData();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
@@ -47,18 +48,17 @@ export const ContractorProfile = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setIsProcessingImage(true);
       
-      try {
+      const reader = new FileReader();
+      reader.onload = (event) => {
           const img = new Image();
-          const objectUrl = URL.createObjectURL(file);
-          
           img.onload = () => {
               const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 800;
+              const MAX_WIDTH = 500; // Resize to save space
               let width = img.width;
               let height = img.height;
 
@@ -72,10 +72,12 @@ export const ContractorProfile = () => {
               const ctx = canvas.getContext('2d');
               ctx?.drawImage(img, 0, 0, width, height);
               
+              // Try conversion
               canvas.toBlob(async (blob) => {
                   if (blob) {
                       const fileName = `avatars/${user.id}-${Date.now()}.jpg`;
                       try {
+                          // 1. Try Supabase Storage Upload
                           const { data, error } = await supabase.storage
                               .from('images')
                               .upload(fileName, blob, {
@@ -92,28 +94,24 @@ export const ContractorProfile = () => {
                           setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
                           toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
                       } catch (uploadError) {
-                          console.warn("Storage upload failed, falling back to Base64:", uploadError);
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                              const base64String = reader.result as string;
-                              setFormData(prev => ({ ...prev, avatar_url: base64String }));
-                              toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
-                          };
-                          reader.readAsDataURL(blob);
+                          console.warn("Storage upload failed, switching to offline mode:", uploadError);
+                          
+                          // 2. Fallback: Use Base64 String directly
+                          const base64String = canvas.toDataURL('image/jpeg', 0.7);
+                          setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                          toast.success('ছবি সেভ হয়েছে');
                       } finally {
                           setIsProcessingImage(false);
                       }
                   }
-              }, 'image/jpeg', 0.8);
+              }, 'image/jpeg', 0.7);
           };
-          img.src = objectUrl;
-
-      } catch (error: any) {
-          console.error("Image processing error:", error);
-          toast.error('ছবি প্রসেসিং এ সমস্যা', error.message);
-          setIsProcessingImage(false);
-      }
+          img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     }
+    
+    // Clear input to allow re-selecting same file
     if (e.target) e.target.value = '';
   };
 
@@ -128,14 +126,12 @@ export const ContractorProfile = () => {
   const confirmDelete = async () => {
     setDeleteLoading(true);
     try {
-        // Attempt to delete profile
         const { error } = await supabase.from('profiles').delete().eq('id', user.id);
         
         if (error) {
             console.error("Delete failed:", error);
-            // If cascade is missing, inform user
-            if (error.code === '23503') { // Foreign key violation
-                toast.error("ডাটা ডিলিট করা যায়নি", "আপনার প্রজেক্ট বা অন্যান্য ডাটা আগে ম্যানুয়ালি মুছে ফেলুন অথবা ডাটাবেস রিসেট করুন।");
+            if (error.code === '23503') {
+                toast.error("ডাটা ডিলিট করা যায়নি", "আপনার প্রজেক্ট বা অন্যান্য ডাটা আগে ম্যানুয়ালি মুছে ফেলুন।");
             } else {
                 toast.error("অ্যাকাউন্ট ডিলিট ব্যর্থ হয়েছে", error.message);
             }
@@ -144,7 +140,6 @@ export const ContractorProfile = () => {
             return;
         }
 
-        // Cleanup local session
         await logout();
         navigate('/login');
         toast.success("অ্যাকাউন্ট সফলভাবে ডিলিট করা হয়েছে।");
@@ -208,14 +203,14 @@ export const ContractorProfile = () => {
                       <Briefcase size={18} />
                    </div>
                    <p className="text-xl font-extrabold text-slate-800 dark:text-white mt-1">{activeProjects}</p>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">চলমান প্রজেক্ট</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('active_projects_stat')}</p>
                 </div>
                 <div className="bg-purple-50 dark:bg-slate-800 p-4 rounded-2xl border border-purple-100 dark:border-slate-700 flex flex-col items-center gap-1">
                    <div className="p-2 bg-white dark:bg-slate-900 rounded-full shadow-sm text-purple-600">
                       <User size={18} />
                    </div>
                    <p className="text-xl font-extrabold text-slate-800 dark:text-white mt-1">{totalWorkers}</p>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">মোট কর্মী</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('total_workers_stat')}</p>
                 </div>
              </div>
           </div>
@@ -228,25 +223,25 @@ export const ContractorProfile = () => {
              <div className="relative z-10">
                <div className="flex justify-between items-center mb-6">
                   <h3 className="text-[10px] font-bold text-emerald-100 uppercase tracking-[0.2em] flex items-center gap-2">
-                     <Wallet size={14} /> ফাইন্যান্স স্ন্যাপশট
+                     <Wallet size={14} /> {t('financial_snapshot')}
                   </h3>
-                  <span className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold border border-white/10">Lifetime</span>
+                  <span className="bg-white/20 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold border border-white/10">{t('lifetime')}</span>
                </div>
                
                <div className="flex justify-between items-end border-b border-emerald-500/30 pb-5 mb-4">
                   <div>
-                     <p className="text-emerald-100 text-xs font-bold mb-1 opacity-80 uppercase">মোট খরচ</p>
+                     <p className="text-emerald-100 text-xs font-bold mb-1 opacity-80 uppercase">{t('total_expense_stat')}</p>
                      <p className="text-3xl font-extrabold tracking-tight">৳ {(totalExpense / 1000).toFixed(1)}k</p>
                   </div>
                   <div className="text-right">
-                     <p className="text-emerald-100 text-xs font-bold mb-1 opacity-80 uppercase">বর্তমান বকেয়া</p>
+                     <p className="text-emerald-100 text-xs font-bold mb-1 opacity-80 uppercase">{t('total_due')}</p>
                      <p className="text-xl font-bold text-white bg-white/10 px-3 py-1 rounded-lg border border-white/10">৳ {totalDue.toLocaleString()}</p>
                   </div>
                </div>
                
                <div className="flex items-center justify-between text-xs font-bold text-emerald-100">
-                  <span className="flex items-center gap-1.5"><Gem size={14} /> প্রো সাবস্ক্রিপশন</span>
-                  <span className="opacity-80">মেয়াদ: ২০২৫</span>
+                  <span className="flex items-center gap-1.5"><Gem size={14} /> {t('pro_membership')}</span>
+                  <span className="opacity-80">{t('valid_till')}: 2025</span>
                </div>
              </div>
           </div>
@@ -256,7 +251,7 @@ export const ContractorProfile = () => {
        <div className="px-4 mt-6 space-y-3">
           <div className="bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
              <div className="px-5 py-3 border-b border-slate-50 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">যোগাযোগের তথ্য</h3>
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('contact_info')}</h3>
              </div>
              <div className="p-3">
                 <div className="flex items-center gap-4 p-3 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-colors cursor-default">
@@ -264,7 +259,7 @@ export const ContractorProfile = () => {
                       <Phone size={20} />
                    </div>
                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">মোবাইল</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">{t('mobile')}</p>
                       <p className="text-base font-bold text-slate-800 dark:text-white font-mono tracking-wide">{user.phone}</p>
                    </div>
                 </div>
@@ -273,8 +268,8 @@ export const ContractorProfile = () => {
                       <Mail size={20} />
                    </div>
                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">ইমেইল</p>
-                      <p className="text-sm font-bold text-slate-800 dark:text-white">{user.email || 'দেওয়া নেই'}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">{t('email')}</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white">{user.email || 'N/A'}</p>
                    </div>
                 </div>
              </div>
@@ -293,8 +288,8 @@ export const ContractorProfile = () => {
                       <Trash2 size={18} />
                    </div>
                    <div className="text-left">
-                      <p className="text-sm font-bold text-red-600 dark:text-red-400">অ্যাকাউন্ট ডিলিট করুন</p>
-                      <p className="text-[10px] text-red-400 dark:text-red-300 font-medium">এই অ্যাকশনটি ফেরতযোগ্য নয়</p>
+                      <p className="text-sm font-bold text-red-600 dark:text-red-400">{t('delete_account')}</p>
+                      <p className="text-[10px] text-red-400 dark:text-red-300 font-medium">{t('action_irreversible')}</p>
                    </div>
                 </div>
                 <AlertTriangle size={18} className="text-red-300 dark:text-red-500 group-hover:text-red-600 transition-colors" />

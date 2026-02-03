@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { ArrowDownLeft, ArrowUpRight, Calendar, Filter, Wallet } from 'lucide-react';
 
 export const Accounts = () => {
-  const { transactions, projects, appSettings } = useData();
+  const { transactions, projects, appSettings, t } = useData();
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all');
   const [timeFilter, setTimeFilter] = useState<'all_time' | 'current_cycle'>('current_cycle');
 
@@ -68,20 +69,20 @@ export const Accounts = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 relative font-sans">
       <div className="bg-white dark:bg-slate-900 p-4 sticky top-0 z-10 shadow-sm mb-4 border-b border-slate-100 dark:border-slate-800">
          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-xl font-bold text-slate-800 dark:text-white">হিসাব খাতা</h1>
+            <h1 className="text-xl font-bold text-slate-800 dark:text-white">{t('accounts')}</h1>
             {/* Time Filter Toggle */}
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
                <button 
                  onClick={() => setTimeFilter('current_cycle')}
                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${timeFilter === 'current_cycle' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
                >
-                 চলতি {appSettings.calcMode === 'weekly' ? 'সপ্তাহ' : 'মাস'}
+                 {t('current_cycle')}
                </button>
                <button 
                  onClick={() => setTimeFilter('all_time')}
                  className={`px-3 py-1 rounded text-[10px] font-bold transition-all ${timeFilter === 'all_time' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}
                >
-                 সব সময়
+                 {t('all_time')}
                </button>
             </div>
          </div>
@@ -101,13 +102,13 @@ export const Accounts = () => {
                <div className="flex gap-4 border-t border-blue-500/30 pt-4">
                   <div className="flex-1">
                      <p className="text-blue-200 text-[10px] font-bold flex items-center gap-1 uppercase mb-0.5">
-                        <ArrowDownLeft size={12} className="text-emerald-400"/> মোট আয়
+                        <ArrowDownLeft size={12} className="text-emerald-400"/> {t('total_income_stat')}
                      </p>
                      <p className="font-bold text-emerald-300 text-lg">৳ {totalIncome.toLocaleString()}</p>
                   </div>
                   <div className="flex-1 border-l border-blue-500/30 pl-4">
                      <p className="text-blue-200 text-[10px] font-bold flex items-center gap-1 uppercase mb-0.5">
-                        <ArrowUpRight size={12} className="text-rose-400"/> মোট ব্যয়
+                        <ArrowUpRight size={12} className="text-rose-400"/> {t('total_expense_stat')}
                      </p>
                      <p className="font-bold text-rose-300 text-lg">৳ {totalExpense.toLocaleString()}</p>
                   </div>
@@ -119,9 +120,9 @@ export const Accounts = () => {
       <div className="px-4">
         {/* Tabs */}
         <div className="flex bg-slate-200 dark:bg-slate-800 p-1 rounded-2xl mb-4">
-          <button onClick={() => setActiveTab('all')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>সব</button>
-          <button onClick={() => setActiveTab('income')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'income' ? 'bg-white dark:bg-slate-700 shadow text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>আয়</button>
-          <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'expense' ? 'bg-white dark:bg-slate-700 shadow text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>ব্যয়</button>
+          <button onClick={() => setActiveTab('all')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'all' ? 'bg-white dark:bg-slate-700 shadow text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{t('all_tab')}</button>
+          <button onClick={() => setActiveTab('income')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'income' ? 'bg-white dark:bg-slate-700 shadow text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>{t('income')}</button>
+          <button onClick={() => setActiveTab('expense')} className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'expense' ? 'bg-white dark:bg-slate-700 shadow text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-slate-400'}`}>{t('expenditure')}</button>
         </div>
 
         {/* List */}
@@ -132,7 +133,7 @@ export const Accounts = () => {
                     <Wallet size={24} className="opacity-50"/>
                  </div>
                  <p className="text-sm font-bold">কোন লেনদেন নেই</p>
-                 {timeFilter === 'current_cycle' && <p className="text-[10px] mt-1 opacity-70">(চলতি সাইকেলে)</p>}
+                 {timeFilter === 'current_cycle' && <p className="text-[10px] mt-1 opacity-70">(চলতি হিসাব সাইকেলে)</p>}
               </div>
            ) : (
               filteredTransactions.map(tx => (

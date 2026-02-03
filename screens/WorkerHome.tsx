@@ -318,7 +318,7 @@ export const WorkerHome = () => {
                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
                    <span className="opacity-80">লাইভ ট্র্যাকিং</span>
                 </div>
-                {isLoadingData && <p className="text-[9px] text-slate-400 animate-pulse flex items-center gap-1"><Loader2 size={8} className="animate-spin"/> Syncing...</p>}
+                {isLoadingData && <p className="text-[9px] text-slate-400 animate-pulse flex items-center gap-1"><Loader2 size={8} className="animate-spin"/> সিঙ্ক হচ্ছে...</p>}
             </div>
          </div>
 
@@ -376,7 +376,7 @@ export const WorkerHome = () => {
                             <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
                                 <Wallet size={10} /> {t('current_due')}
                             </p>
-                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</p>
                         </div>
                         <div className="bg-white/20 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-inner">
                             <ShieldCheck size={20} className="text-white" />

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
@@ -5,7 +6,7 @@ import { ArrowLeft, PieChart, TrendingUp, TrendingDown, FileBarChart, Download, 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const Reports = () => {
-  const { projects, transactions, attendance } = useData();
+  const { projects, transactions, attendance, t } = useData();
   const navigate = useNavigate();
 
   // Calculations
@@ -61,7 +62,7 @@ export const Reports = () => {
             <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
                <ArrowLeft size={20} />
             </button>
-            <h1 className="font-bold text-lg text-slate-800 dark:text-white">রিপোর্ট ও এনালাইটিক্স</h1>
+            <h1 className="font-bold text-lg text-slate-800 dark:text-white">{t('analytics_title')}</h1>
          </div>
          <button 
             onClick={downloadReport}
@@ -83,7 +84,7 @@ export const Reports = () => {
                   <div className="bg-white dark:bg-emerald-900/50 p-1.5 rounded-lg shadow-sm">
                      <TrendingUp size={16} />
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-wide">মোট আয়</span>
+                  <span className="text-xs font-bold uppercase tracking-wide">{t('total_income_stat')}</span>
                </div>
                <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">৳ {totalIncome.toLocaleString()}</p>
             </div>
@@ -96,7 +97,7 @@ export const Reports = () => {
                   <div className="bg-white dark:bg-rose-900/50 p-1.5 rounded-lg shadow-sm">
                      <TrendingDown size={16} />
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-wide">মোট ব্যয়</span>
+                  <span className="text-xs font-bold uppercase tracking-wide">{t('total_expense_stat')}</span>
                </div>
                <p className="text-2xl font-extrabold text-rose-700 dark:text-rose-300">৳ {totalExpense.toLocaleString()}</p>
             </div>
@@ -108,13 +109,13 @@ export const Reports = () => {
                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600">
                   <PieChart size={18} />
                </div> 
-               খরচের খাত
+               {t('expense_breakdown')}
             </h3>
             
             <div className="space-y-6">
                <div>
                   <div className="flex justify-between text-sm mb-2">
-                     <span className="text-slate-500 dark:text-slate-400 font-bold">লেবার খরচ (হাজিরা)</span>
+                     <span className="text-slate-500 dark:text-slate-400 font-bold">{t('labor_cost')}</span>
                      <span className="font-bold text-slate-800 dark:text-white">৳ {totalLaborCost.toLocaleString()}</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
@@ -123,7 +124,7 @@ export const Reports = () => {
                </div>
                <div>
                   <div className="flex justify-between text-sm mb-2">
-                     <span className="text-slate-500 dark:text-slate-400 font-bold">ম্যাটেরিয়াল / অন্যান্য</span>
+                     <span className="text-slate-500 dark:text-slate-400 font-bold">{t('material_other')}</span>
                      <span className="font-bold text-slate-800 dark:text-white">৳ {totalMaterialCost.toLocaleString()}</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-3 overflow-hidden">
@@ -139,10 +140,12 @@ export const Reports = () => {
                <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-lg text-indigo-600">
                   <FileBarChart size={18} />
                </div>
-               প্রজেক্ট খরচ
+               {t('project_cost')}
             </h3>
-            <div className="h-64 w-full text-xs font-bold">
-               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            
+            {/* Fixed Height Container to prevent width(-1) error */}
+            <div className="w-full h-64 text-xs font-bold">
+               <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={projectData} layout="vertical" barSize={20}>
                      <XAxis type="number" hide />
                      <YAxis 

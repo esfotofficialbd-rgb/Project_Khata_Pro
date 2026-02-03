@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
@@ -144,7 +145,7 @@ export const ContractorDashboard = () => {
       id: Date.now().toString(),
       type: activeModal as 'income' | 'expense',
       amount: Number(txForm.amount),
-      description: txForm.description || (activeModal === 'income' ? 'Cash In' : 'General Expense'),
+      description: txForm.description || (activeModal === 'income' ? 'জমা (ক্যাশ)' : 'সাধারণ খরচ'),
       project_id: txForm.projectId || undefined,
       date: today
     };
@@ -379,7 +380,7 @@ export const ContractorDashboard = () => {
                                     <p className="text-sm font-bold text-white">৳ {stats.totalExpense.toLocaleString()}</p>
                                 </div>
                             </div>
-                            <span className="text-[9px] bg-rose-500/20 text-rose-100 px-2 py-1 rounded font-bold border border-rose-400/20">Today</span>
+                            <span className="text-[9px] bg-rose-500/20 text-rose-100 px-2 py-1 rounded font-bold border border-rose-400/20">আজ</span>
                         </div>
 
                         </div>
@@ -403,7 +404,7 @@ export const ContractorDashboard = () => {
                         { icon: CreditCard, label: t('deposit'), color: 'text-cyan-600', action: () => setActiveModal('income') },
                         { icon: Hammer, label: t('tools'), color: 'text-orange-600', action: () => navigate('/tools') },
                         { icon: FileText, label: t('report'), color: 'text-indigo-600', action: () => navigate('/reports') },
-                        { icon: MapPin, label: 'Live Map', color: 'text-red-600', action: () => navigate('/tracking') },
+                        { icon: MapPin, label: 'লাইভ ম্যাপ', color: 'text-red-600', action: () => navigate('/tracking') },
                     ].map((item, idx) => (
                         <button 
                         key={idx} 
@@ -436,36 +437,37 @@ export const ContractorDashboard = () => {
                     </button>
                     </div>
                     
-                    <div style={{ width: '100%', height: 160 }}>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                        <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
-                                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
-                                </linearGradient>
-                                <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
-                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.3} />
-                            <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} dy={10} />
-                            <YAxis tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} />
-                            <Tooltip 
-                                contentStyle={{ 
-                                borderRadius: '12px', 
-                                border: 'none', 
-                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                fontSize: '12px',
-                                fontWeight: 'bold'
-                                }}
-                            />
-                            <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" />
-                            <Area type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    {/* Fixed Height Container for Chart to prevent width(-1) errors */}
+                    <div className="w-full h-[160px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2}/>
+                                    <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
+                                    </linearGradient>
+                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" opacity={0.3} />
+                                <XAxis dataKey="name" tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} dy={10} />
+                                <YAxis tick={{fontSize: 9, fill: '#94a3b8', fontWeight: 600}} axisLine={false} tickLine={false} />
+                                <Tooltip 
+                                    contentStyle={{ 
+                                    borderRadius: '12px', 
+                                    border: 'none', 
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold'
+                                    }}
+                                />
+                                <Area type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={3} fillOpacity={1} fill="url(#colorExpense)" />
+                                <Area type="monotone" dataKey="income" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorIncome)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
 

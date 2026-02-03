@@ -1,9 +1,12 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useData } from '../context/DataContext';
 import { ArrowLeft, Hammer, Ruler, Component, Box, ChevronRight, Calculator } from 'lucide-react';
 
 export const Tools = () => {
   const navigate = useNavigate();
+  const { t } = useData();
   const [activeTool, setActiveTool] = useState<'brick' | 'rod' | null>(null);
   
   // Brick Calc State
@@ -49,7 +52,7 @@ export const Tools = () => {
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="font-bold text-lg text-slate-800 dark:text-white">কনস্ট্রাকশন টুলস</h1>
+        <h1 className="font-bold text-lg text-slate-800 dark:text-white">{t('construction_tools')}</h1>
       </div>
 
       <div className="p-4 space-y-4">
@@ -62,7 +65,7 @@ export const Tools = () => {
                   <div className="bg-orange-50 dark:bg-orange-900/20 p-5 rounded-full text-orange-600 dark:text-orange-400 group-hover:scale-110 transition-transform">
                      <Box size={32} strokeWidth={2} />
                   </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-orange-600 dark:group-hover:text-orange-400">ইটের হিসাব</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-orange-600 dark:group-hover:text-orange-400">{t('brick_calc')}</span>
                </button>
                <button 
                   onClick={() => setActiveTool('rod')}
@@ -71,7 +74,7 @@ export const Tools = () => {
                   <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-full text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
                      <Component size={32} strokeWidth={2} />
                   </div>
-                  <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">রডের হিসাব</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400">{t('rod_calc')}</span>
                </button>
             </div>
          )}
@@ -81,22 +84,22 @@ export const Tools = () => {
                <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                      <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-xl text-orange-600"><Box size={20}/></div> 
-                     ইটের ক্যালকুলেটর
+                     {t('brick_calculator')}
                   </h3>
-                  <button onClick={() => setActiveTool(null)} className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">পরিবর্তন</button>
+                  <button onClick={() => setActiveTool(null)} className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">Change</button>
                </div>
                
                <div className="space-y-4">
                   <div>
-                     <label className={labelClass}>দেয়ালের দৈর্ঘ্য (ফুট)</label>
+                     <label className={labelClass}>{t('wall_length')}</label>
                      <input type="number" value={wallSize.length} onChange={e => setWallSize({...wallSize, length: e.target.value})} className={inputClass} placeholder="0" />
                   </div>
                   <div>
-                     <label className={labelClass}>দেয়ালের উচ্চতা (ফুট)</label>
+                     <label className={labelClass}>{t('wall_height')}</label>
                      <input type="number" value={wallSize.height} onChange={e => setWallSize({...wallSize, height: e.target.value})} className={inputClass} placeholder="0" />
                   </div>
                   <div>
-                     <label className={labelClass}>দেয়ালের চওড়া (ইঞ্চি)</label>
+                     <label className={labelClass}>{t('wall_thickness')}</label>
                      <div className="relative">
                         <select value={wallSize.thickness} onChange={e => setWallSize({...wallSize, thickness: e.target.value})} className={`${inputClass} appearance-none`}>
                            <option value="5">৫ ইঞ্চি</option>
@@ -106,12 +109,12 @@ export const Tools = () => {
                      </div>
                   </div>
                   <button onClick={calculateBricks} className="w-full py-4 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-2xl mt-2 shadow-lg shadow-orange-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2">
-                     <Calculator size={18}/> হিসাব করুন
+                     <Calculator size={18}/> {t('calculate')}
                   </button>
                   
                   {brickResult !== null && (
                      <div className="mt-6 p-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl text-center text-white shadow-lg">
-                        <p className="text-xs font-bold uppercase tracking-widest text-orange-100 mb-1">প্রয়োজনীয় ইট</p>
+                        <p className="text-xs font-bold uppercase tracking-widest text-orange-100 mb-1">{t('required_bricks')}</p>
                         <p className="text-4xl font-extrabold">{brickResult} টি</p>
                         <p className="text-[10px] text-orange-100 mt-2 font-medium bg-white/20 inline-block px-3 py-1 rounded-full">*মশলা সহ আনুমানিক হিসাব</p>
                      </div>
@@ -125,17 +128,17 @@ export const Tools = () => {
                <div className="flex justify-between items-center mb-6">
                   <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
                      <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-xl text-blue-600"><Component size={20}/></div> 
-                     রডের ওজন
+                     {t('rod_weight')}
                   </h3>
-                  <button onClick={() => setActiveTool(null)} className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">পরিবর্তন</button>
+                  <button onClick={() => setActiveTool(null)} className="text-xs font-bold text-blue-600 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg">Change</button>
                </div>
                
                <div className="space-y-4">
                   <div>
-                     <label className={labelClass}>রডের সাইজ (mm)</label>
+                     <label className={labelClass}>{t('rod_size')}</label>
                      <div className="relative">
                         <select value={rodDetails.diameter} onChange={e => setRodDetails({...rodDetails, diameter: e.target.value})} className={`${inputClass} appearance-none`}>
-                           <option value="">সিলেক্ট করুন</option>
+                           <option value="">Select Size</option>
                            <option value="8">8 mm</option>
                            <option value="10">10 mm</option>
                            <option value="12">12 mm</option>
@@ -147,20 +150,20 @@ export const Tools = () => {
                      </div>
                   </div>
                   <div>
-                     <label className={labelClass}>প্রতিটির দৈর্ঘ্য (ফুট)</label>
+                     <label className={labelClass}>{t('rod_length')}</label>
                      <input type="number" value={rodDetails.length} onChange={e => setRodDetails({...rodDetails, length: e.target.value})} className={inputClass} placeholder="সাধারণত ৩৯.৫ ফুট" />
                   </div>
                   <div>
-                     <label className={labelClass}>পরিমাণ (সংখ্যা)</label>
+                     <label className={labelClass}>{t('rod_quantity')}</label>
                      <input type="number" value={rodDetails.quantity} onChange={e => setRodDetails({...rodDetails, quantity: e.target.value})} className={inputClass} placeholder="0" />
                   </div>
                   <button onClick={calculateRod} className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-2xl mt-2 shadow-lg shadow-blue-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2">
-                     <Calculator size={18}/> হিসাব করুন
+                     <Calculator size={18}/> {t('calculate')}
                   </button>
                   
                   {rodWeight !== null && (
                      <div className="mt-6 p-6 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl text-center text-white shadow-lg">
-                        <p className="text-xs font-bold uppercase tracking-widest text-blue-100 mb-1">মোট ওজন</p>
+                        <p className="text-xs font-bold uppercase tracking-widest text-blue-100 mb-1">{t('total_weight')}</p>
                         <p className="text-4xl font-extrabold">{rodWeight} কেজি</p>
                      </div>
                   )}
