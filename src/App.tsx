@@ -31,7 +31,7 @@ import { Loader2, AlertTriangle, RefreshCcw } from 'lucide-react';
 
 // Error Boundary Types
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -63,7 +63,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
           </div>
           <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">সাময়িক সমস্যা হয়েছে</h1>
           <p className="text-slate-500 dark:text-slate-400 mb-8 max-w-xs mx-auto text-sm leading-relaxed">
-            দুঃখিত, অ্যাপটিতে একটি অপ্রত্যাশিত ত্রুটি দেখা দিয়েছে।
+            দুঃখিত, অ্যাপটিতে একটি অপ্রত্যাশিত ত্রুটি দেখা দিয়েছে। অনুগ্রহ করে রিলোড করুন।
           </p>
           <button
             onClick={() => window.location.reload()}
@@ -72,7 +72,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             <RefreshCcw size={20} />
             রিলোড করুন
           </button>
-          <p className="mt-8 text-xs text-slate-400 font-mono">Error: {this.state.error?.message?.slice(0, 30)}</p>
+          {process.env.NODE_ENV === 'development' && (
+             <p className="mt-8 text-xs text-slate-400 font-mono bg-slate-100 dark:bg-slate-800 p-2 rounded max-w-md overflow-hidden text-ellipsis">
+               Error: {this.state.error?.message}
+             </p>
+          )}
         </div>
       );
     }
