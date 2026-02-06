@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2 } from 'lucide-react';
+import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft } from 'lucide-react';
 import { Transaction, WorkReport, MaterialLog } from '../types';
 import { supabase } from '../supabaseClient';
 
@@ -185,6 +186,7 @@ export const SupervisorDashboard = () => {
     if (e.target) e.target.value = '';
   };
 
+  // --- SMART FEED LOGIC (ENHANCED) ---
   const feedItems = useMemo(() => {
      let items: any[] = [];
 
@@ -196,14 +198,60 @@ export const SupervisorDashboard = () => {
              title: 'পাবলিক নোটিশ',
              desc: notice.message,
              icon: Megaphone,
-             color: 'text-red-600',
+             color: 'text-red-600 dark:text-red-400',
              bg: 'bg-red-100 dark:bg-red-900/30',
              border: 'border-red-200 dark:border-red-800'
          });
      });
 
+     // 1. Attendance Check (Alert if low after 10 AM)
+     const totalPresent = attendance.filter(a => a.date === today && (a.status === 'P' || a.status === 'H')).length;
+     const currentHour = new Date().getHours();
+     
+     if (currentHour >= 10 && totalPresent === 0) {
+        items.push({
+            id: 'att-alert',
+            type: 'alert',
+            title: 'হাজিরা রিমাইন্ডার',
+            desc: 'সকাল ১০টা বেজে গেছে, এখনো হাজিরা এন্ট্রি হয়নি। দ্রুত হাজিরা নিন।',
+            icon: Clock,
+            color: 'text-orange-600 dark:text-orange-400',
+            bg: 'bg-orange-100 dark:bg-orange-900/30',
+            border: 'border-orange-200 dark:border-orange-800'
+        });
+     } else if (totalPresent > 0) {
+        items.push({
+            id: `att-${today}`,
+            type: 'attendance',
+            title: 'সাইট উপস্থিতি',
+            desc: `আজ মোট ${totalPresent} জন কর্মী বিভিন্ন সাইটে কাজ করছে।`,
+            icon: Users,
+            color: 'text-purple-600 dark:text-purple-400',
+            bg: 'bg-purple-100 dark:bg-purple-900/30',
+            border: 'border-purple-200 dark:border-purple-800'
+        });
+     }
+
+     // 2. Material Logic
+     const lastMaterial = materialLogs.sort((a,b) => b.id.localeCompare(a.id))[0];
+     // Show only if created today
+     if (lastMaterial && lastMaterial.date === today) {
+        const pName = projects.find(p => p.id === lastMaterial.project_id)?.project_name || 'Unknown';
+        items.push({
+            id: `mat-${lastMaterial.id}`,
+            type: 'material',
+            title: 'নতুন মালামাল',
+            desc: `${pName}-এ ${lastMaterial.quantity} ${lastMaterial.unit} ${lastMaterial.item_name} রিসিভ হয়েছে।`,
+            icon: PackageCheck,
+            color: 'text-emerald-600 dark:text-emerald-400',
+            bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+            border: 'border-emerald-200 dark:border-emerald-800'
+        });
+     }
+
+     // 3. Expense Logic
      const lastExpense = transactions
-        .filter(t => t.type === 'expense')
+        .filter(t => t.type === 'expense' && t.date === today)
         .sort((a,b) => b.id.localeCompare(a.id))[0];
      
      if (lastExpense) {
@@ -214,49 +262,21 @@ export const SupervisorDashboard = () => {
             title: 'খরচ আপডেট',
             desc: `${projName}: ${lastExpense.description} বাবদ ৳${lastExpense.amount} খরচ হয়েছে।`,
             icon: TrendingUp,
-            color: 'text-rose-600',
+            color: 'text-rose-600 dark:text-rose-400',
             bg: 'bg-rose-100 dark:bg-rose-900/30',
             border: 'border-rose-200 dark:border-rose-800'
         });
      }
 
-     const totalPresent = attendance.filter(a => a.date === today && (a.status === 'P' || a.status === 'H')).length;
-     if (totalPresent > 0) {
-        items.push({
-            id: `att-${today}`,
-            type: 'attendance',
-            title: 'সাইট উপস্থিতি',
-            desc: `আজ মোট ${totalPresent} জন কর্মী বিভিন্ন সাইটে কাজ করছে।`,
-            icon: Users,
-            color: 'text-purple-600',
-            bg: 'bg-purple-100 dark:bg-purple-900/30',
-            border: 'border-purple-200 dark:border-purple-800'
-        });
-     }
-
-     const lastMaterial = materialLogs.sort((a,b) => b.id.localeCompare(a.id))[0];
-     if (lastMaterial) {
-        const pName = projects.find(p => p.id === lastMaterial.project_id)?.project_name || 'Unknown';
-        items.push({
-            id: `mat-${lastMaterial.id}`,
-            type: 'material',
-            title: 'ম্যাটেরিয়াল রিসিভড',
-            desc: `${pName}-এ ${lastMaterial.quantity} ${lastMaterial.unit} ${lastMaterial.item_name} এসেছে।`,
-            icon: PackageCheck,
-            color: 'text-orange-600',
-            bg: 'bg-orange-100 dark:bg-orange-900/30',
-            border: 'border-orange-200 dark:border-orange-800'
-        });
-     }
-
+     // Fallback
      if (items.length === 0) {
         items.push({
            id: 'default',
            type: 'info',
            title: 'প্রজেক্ট খাতা',
-           desc: 'আপনার সাইটের আজকের কাজের আপডেট এখানে আসবে।',
+           desc: 'আপনার সাইটের কাজের আপডেট এখানে আসবে।',
            icon: Activity,
-           color: 'text-slate-600',
+           color: 'text-slate-600 dark:text-slate-400',
            bg: 'bg-slate-100 dark:bg-slate-800',
            border: 'border-slate-200 dark:border-slate-700'
         });
@@ -275,9 +295,70 @@ export const SupervisorDashboard = () => {
 
   const currentItem = feedItems[currentFeedIndex] || feedItems[0];
 
-  const formatDateDetailed = (dateStr: string) => {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('bn-BD', { weekday: 'long', day: 'numeric', month: 'long' });
+  // --- RECENT ACTIVITY LOGIC (SUPERVISOR) ---
+  const smartActivityFeed = useMemo(() => {
+      let activities: any[] = [];
+
+      // Helper to safely parse date
+      const safeDate = (d: string) => {
+          const date = new Date(d);
+          return isNaN(date.getTime()) ? new Date() : date;
+      };
+
+      // 1. Transactions (Last 5)
+      transactions.filter(t => t.type === 'expense' || t.type === 'salary').slice(0, 5).forEach(t => {
+          activities.push({
+              id: `tx-${t.id}`,
+              date: safeDate(t.created_at || t.date),
+              title: t.type === 'salary' ? 'বেতন প্রদান' : 'খরচ',
+              desc: `${t.description} - ৳${t.amount}`,
+              icon: ArrowUpRight,
+              color: 'text-rose-600',
+              bg: 'bg-rose-100 dark:bg-rose-900/30'
+          });
+      });
+
+      // 2. Material Logs
+      materialLogs.slice(0, 5).forEach(m => {
+          activities.push({
+              id: `mat-${m.id}`,
+              date: safeDate(m.created_at || m.date),
+              title: 'ম্যাটেরিয়াল',
+              desc: `${m.item_name} - ${m.quantity} ${m.unit}`,
+              icon: PackageCheck,
+              color: 'text-orange-600',
+              bg: 'bg-orange-100 dark:bg-orange-900/30'
+          });
+      });
+
+      // 3. Work Reports
+      workReports.slice(0, 5).forEach(r => {
+          const pName = projects.find(p => p.id === r.project_id)?.project_name || 'Project';
+          activities.push({
+              id: `rep-${r.id}`,
+              date: safeDate(r.created_at || r.date),
+              title: 'কাজের রিপোর্ট',
+              desc: `${pName}: ${r.description.substring(0, 30)}...`,
+              icon: FileText,
+              color: 'text-indigo-600',
+              bg: 'bg-indigo-100 dark:bg-indigo-900/30'
+          });
+      });
+
+      // Sort by Date Descending
+      return activities.sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
+  }, [transactions, workReports, materialLogs, projects]);
+
+  const formatTimeAgo = (date: Date) => {
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+      
+      if (diffInSeconds < 60) return 'এইমাত্র';
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      if (diffInMinutes < 60) return `${diffInMinutes} মি. আগে`;
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) return `${diffInHours} ঘণ্টা আগে`;
+      return date.toLocaleDateString('bn-BD', {day: 'numeric', month:'short'});
   };
 
   const handleTxSubmit = async (e: React.FormEvent) => {
@@ -380,11 +461,6 @@ export const SupervisorDashboard = () => {
 
   const selectedWorkerBalance = payForm.workerId ? getWorkerBalance(payForm.workerId) : 0;
 
-  const recentExpenses = transactions
-    .filter(t => t.type === 'expense' || t.type === 'salary')
-    .sort((a, b) => Number(b.id) - Number(a.id))
-    .slice(0, 5);
-
   // --- SKELETON COMPONENT ---
   const DashboardSkeleton = () => (
     <div className="space-y-4 animate-pulse">
@@ -443,6 +519,12 @@ export const SupervisorDashboard = () => {
                 </div>
                 {isLoadingData && <p className="text-[9px] text-slate-400 animate-pulse flex items-center gap-1"><Loader2 size={8} className="animate-spin"/> Syncing...</p>}
             </div>
+         </div>
+
+         {/* SMART FEED SECTION */}
+         <div className="mb-2 flex items-center gap-1.5 opacity-80">
+            <Sparkles size={12} className="text-purple-500" />
+            <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">স্মার্ট ফিড</h3>
          </div>
 
          <div 
@@ -620,40 +702,44 @@ export const SupervisorDashboard = () => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] p-4 shadow-sm border border-slate-100 dark:border-slate-800">
-                    <div className="flex justify-between items-center mb-3">
+                {/* RECENT ACTIVITY LIST (SMART) */}
+                <div className="bg-white dark:bg-slate-900 rounded-[1.5rem] p-5 shadow-sm border border-slate-100 dark:border-slate-800">
+                    <div className="flex justify-between items-center mb-4">
                         <h3 className="text-slate-800 dark:text-slate-200 font-bold text-xs uppercase tracking-wide flex items-center gap-2">
-                        <History size={14} className="text-slate-400"/>
-                        {t('recent_expense')}
+                        <Activity size={14} className="text-purple-500"/>
+                        সাম্প্রতিক কার্যক্রম
                         </h3>
-                        <button onClick={() => navigate('/accounts')} className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded-lg">
-                            সব দেখুন
-                        </button>
                     </div>
                     
-                    <div className="space-y-2">
-                        {recentExpenses.length === 0 ? (
+                    <div className="space-y-0 relative">
+                        {/* Vertical Timeline Line */}
+                        <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-slate-100 dark:bg-slate-800"></div>
+
+                        {smartActivityFeed.length === 0 ? (
                         <div className="text-center py-6 text-slate-400 text-xs font-bold bg-slate-50 dark:bg-slate-950/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
                             <ClipboardList size={20} className="mx-auto mb-1 opacity-50"/>
                             {t('no_expense_today')}
                         </div>
                         ) : (
-                        recentExpenses.map(tx => (
-                            <div key={tx.id} className="flex items-center justify-between group p-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl transition-colors border border-transparent">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded-lg text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-900/30">
-                                        <ArrowUpRight size={14} />
-                                    </div>
-                                    <div>
-                                        <p className="font-bold text-xs text-slate-800 dark:text-white line-clamp-1">{tx.description}</p>
-                                        <p className="text-[9px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium mt-0.5">
-                                            <Clock size={8} /> {formatDateDetailed(tx.date)}
-                                        </p>
-                                    </div>
+                        smartActivityFeed.map(act => (
+                            <div key={act.id} className="relative pl-12 pb-5 last:pb-0 group">
+                                {/* Timeline Dot */}
+                                <div className={`absolute left-0 w-10 h-10 rounded-full flex items-center justify-center z-10 border-4 border-white dark:border-slate-900 ${act.bg} ${act.color}`}>
+                                    <act.icon size={16} strokeWidth={2.5} />
                                 </div>
-                                <span className="font-bold text-purple-600 dark:text-purple-400 text-xs bg-purple-50 dark:bg-purple-900/10 px-2 py-1 rounded-lg border border-purple-100 dark:border-purple-900/20">
-                                    - ৳{tx.amount.toLocaleString()}
-                                </span>
+                                
+                                {/* Content */}
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex justify-between items-start">
+                                        <p className="font-bold text-slate-800 dark:text-white text-xs">{act.title}</p>
+                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                            {formatTimeAgo(act.date)}
+                                        </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug font-medium line-clamp-2">
+                                        {act.desc}
+                                    </p>
+                                </div>
                             </div>
                         ))
                         )}
@@ -734,6 +820,7 @@ export const SupervisorDashboard = () => {
         </div>
       )}
 
+      {/* Other modals remain the same... */}
       {activeModal === 'payment' && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>

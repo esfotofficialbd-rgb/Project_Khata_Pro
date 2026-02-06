@@ -4,12 +4,12 @@ import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Info, AlertTriangle, CheckCircle, Wallet, Check, ClipboardList, X, UserCheck, FileText, Clock, MapPin, ChevronRight, CheckCheck, Banknote } from 'lucide-react';
+import { ArrowLeft, Bell, Info, AlertTriangle, CheckCircle, Wallet, Check, ClipboardList, X, UserCheck, FileText, Clock, MapPin, ChevronRight, CheckCheck, Banknote, Sparkles, UserCog } from 'lucide-react';
 import { Project } from '../types';
 
 export const Notifications = () => {
   const { user } = useAuth();
-  const { notifications, markNotificationAsRead, addProject, markAttendance, payWorker, users } = useData();
+  const { notifications, markNotificationAsRead, addProject, markAttendance, payWorker, users, updateUser } = useData();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -25,26 +25,28 @@ export const Notifications = () => {
 
   const getIcon = (type: string) => {
     switch(type) {
-      case 'alert': return <AlertTriangle size={18} className="text-orange-600 dark:text-orange-400"/>;
-      case 'success': return <CheckCircle size={18} className="text-green-600 dark:text-green-400"/>;
-      case 'payment': return <Banknote size={18} className="text-emerald-600 dark:text-emerald-400"/>;
-      case 'project_request': return <ClipboardList size={18} className="text-blue-600 dark:text-blue-400"/>;
-      case 'attendance_request': return <UserCheck size={18} className="text-purple-600 dark:text-purple-400"/>;
-      case 'advance_request': return <Wallet size={18} className="text-rose-600 dark:text-rose-400"/>;
-      case 'work_report': return <FileText size={18} className="text-indigo-600 dark:text-indigo-400"/>;
-      default: return <Info size={18} className="text-slate-600 dark:text-slate-400"/>;
+      case 'alert': return <AlertTriangle size={20} className="text-orange-500" strokeWidth={2.5}/>;
+      case 'success': return <CheckCircle size={20} className="text-green-500" strokeWidth={2.5}/>;
+      case 'payment': return <Wallet size={20} className="text-emerald-500" strokeWidth={2.5}/>;
+      case 'project_request': return <ClipboardList size={20} className="text-blue-500" strokeWidth={2.5}/>;
+      case 'attendance_request': return <UserCheck size={20} className="text-purple-500" strokeWidth={2.5}/>;
+      case 'advance_request': return <Banknote size={20} className="text-rose-500" strokeWidth={2.5}/>;
+      case 'work_report': return <FileText size={20} className="text-indigo-500" strokeWidth={2.5}/>;
+      case 'profile_update_request': return <UserCog size={20} className="text-orange-500" strokeWidth={2.5}/>;
+      default: return <Bell size={20} className="text-slate-500" strokeWidth={2.5}/>;
     }
   };
 
-  const getBgColor = (type: string) => {
+  const getThemeColors = (type: string) => {
      switch(type) {
-      case 'alert': return 'bg-orange-100 dark:bg-orange-900/30';
-      case 'success': return 'bg-green-100 dark:bg-green-900/30';
-      case 'payment': return 'bg-emerald-100 dark:bg-emerald-900/30';
-      case 'project_request': return 'bg-blue-100 dark:bg-blue-900/30';
-      case 'attendance_request': return 'bg-purple-100 dark:bg-purple-900/30';
-      case 'advance_request': return 'bg-rose-100 dark:bg-rose-900/30';
-      case 'work_report': return 'bg-indigo-100 dark:bg-indigo-900/30';
+      case 'alert': return 'bg-orange-50 dark:bg-orange-900/20';
+      case 'success': return 'bg-green-50 dark:bg-green-900/20';
+      case 'payment': return 'bg-emerald-50 dark:bg-emerald-900/20';
+      case 'project_request': return 'bg-blue-50 dark:bg-blue-900/20';
+      case 'attendance_request': return 'bg-purple-50 dark:bg-purple-900/20';
+      case 'advance_request': return 'bg-rose-50 dark:bg-rose-900/20';
+      case 'work_report': return 'bg-indigo-50 dark:bg-indigo-900/20';
+      case 'profile_update_request': return 'bg-orange-50 dark:bg-orange-900/20';
       default: return 'bg-slate-100 dark:bg-slate-800';
     }
   }
@@ -52,17 +54,16 @@ export const Notifications = () => {
   // Dynamic Theme Colors
   const themeColor = isWorker ? 'emerald' : (isSupervisor ? 'purple' : 'blue');
   const themeText = isWorker ? 'text-emerald-600' : (isSupervisor ? 'text-purple-600' : 'text-blue-600');
-  const themeHover = isWorker ? 'hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : (isSupervisor ? 'hover:bg-purple-50 dark:hover:bg-purple-900/20' : 'hover:bg-blue-50 dark:hover:bg-blue-900/20');
 
   const getGroupLabel = (dateStr: string) => {
       try {
           const date = new Date(dateStr);
           const today = new Date();
-          if (date.toDateString() === today.toDateString()) return 'আজ';
+          if (date.toDateString() === today.toDateString()) return 'আজ (Today)';
           
           const yesterday = new Date(today);
           yesterday.setDate(yesterday.getDate() - 1);
-          if (date.toDateString() === yesterday.toDateString()) return 'গতকাল';
+          if (date.toDateString() === yesterday.toDateString()) return 'গতকাল (Yesterday)';
 
           return new Date(dateStr).toLocaleDateString('bn-BD', {day:'numeric', month:'long'});
       } catch (e) {
@@ -78,9 +79,7 @@ export const Notifications = () => {
   };
 
   const handleApproveProject = (notificationId: string, projectData: Project) => {
-      // Create fresh project instance, ensuring new ID if necessary (though DataContext generates it properly)
       const newProject = { ...projectData, id: Date.now().toString() };
-      
       addProject(newProject);
       markNotificationAsRead(notificationId);
       toast.success('প্রজেক্টটি সফলভাবে তৈরি করা হয়েছে।');
@@ -117,36 +116,66 @@ export const Notifications = () => {
      toast.info('অগ্রিম অনুরোধ বাতিল করা হয়েছে।');
   };
 
+  const handleApproveProfileUpdate = async (notificationId: string, data: any) => {
+      const { workerId, updatedData } = data;
+      const targetUser = users.find(u => u.id === workerId);
+      
+      if(!targetUser) {
+          toast.error('ব্যবহারকারী পাওয়া যায়নি');
+          return;
+      }
+
+      if(window.confirm('আপনি কি প্রোফাইল আপডেট অনুমোদন করছেন?')) {
+          const finalUser = { ...targetUser, ...updatedData };
+          await updateUser(finalUser); 
+          markNotificationAsRead(notificationId);
+          toast.success('প্রোফাইল আপডেট অনুমোদিত হয়েছে।');
+      }
+  };
+
+  const handleDeclineProfileUpdate = (notificationId: string) => {
+      if(window.confirm('আপনি কি এই আপডেট অনুরোধ বাতিল করতে চান?')) {
+          markNotificationAsRead(notificationId);
+          toast.info('আপডেট অনুরোধ বাতিল করা হয়েছে।');
+      }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
-      {/* Header */}
-      <div className="bg-white dark:bg-slate-900 p-4 shadow-sm sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
-         <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 transition-colors">
-               <ArrowLeft size={22} />
-            </button>
-            <h1 className="font-bold text-lg text-slate-800 dark:text-white">নোটিফিকেশন</h1>
+    <div className="min-h-screen bg-[#F2F2F7] dark:bg-slate-950 pb-20 font-sans">
+      
+      {/* iOS Style Frosted Header */}
+      <div className="sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50 px-4 pt-12 pb-4 transition-all">
+         <div className="flex items-center justify-between">
+             <div className="flex items-center gap-1">
+                <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-blue-600 dark:text-blue-400 hover:opacity-70 transition-opacity">
+                   <ArrowLeft size={24} />
+                </button>
+                <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">নোটিফিকেশন</h1>
+             </div>
+             
+             {myNotifications.some(n => !n.is_read) && (
+                <button 
+                    onClick={handleMarkAllRead} 
+                    className="w-8 h-8 flex items-center justify-center bg-slate-200 dark:bg-slate-800 rounded-full text-slate-600 dark:text-slate-300 active:scale-90 transition-transform"
+                    title="সব পড়ুন"
+                >
+                   <CheckCheck size={16} />
+                </button>
+             )}
          </div>
-         {myNotifications.some(n => !n.is_read) && (
-            <button 
-                onClick={handleMarkAllRead} 
-                className={`text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors ${themeText} ${themeHover}`}
-            >
-               <CheckCheck size={14}/> সব পড়ুন
-            </button>
-         )}
       </div>
 
-      <div className="p-4 space-y-6">
+      <div className="px-4 py-2 space-y-6">
         {myNotifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-             <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-full mb-4">
-                <Bell size={32} className="opacity-50" />
+          <div className="flex flex-col items-center justify-center py-32 text-center animate-in fade-in zoom-in duration-500">
+             <div className="w-20 h-20 bg-slate-200 dark:bg-slate-800 rounded-[2rem] flex items-center justify-center mb-6 shadow-inner">
+                <Bell size={32} className="text-slate-400" />
              </div>
-             <p className="font-medium text-sm">কোন নোটিফিকেশন নেই</p>
+             <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300">কোন নোটিফিকেশন নেই</h3>
+             <p className="text-sm text-slate-400 mt-1">আপনার সব আপডেট এখানে দেখা যাবে।</p>
           </div>
         ) : (
-          // Render Logic with Grouping
+          // Grouped List
           (() => {
              let lastGroup = '';
              return myNotifications.map((notification) => {
@@ -154,66 +183,83 @@ export const Notifications = () => {
                 const showHeader = group !== lastGroup;
                 lastGroup = group;
 
-                // Extract Amount if available in message
+                // Extract Amount
                 const amountMatch = notification.message.match(/৳\s?([0-9,]+)/);
                 const displayAmount = amountMatch ? amountMatch[0] : null;
 
-                const isRequest = ['project_request', 'attendance_request', 'advance_request'].includes(notification.type);
+                const isRequest = ['project_request', 'attendance_request', 'advance_request', 'profile_update_request'].includes(notification.type);
+                const isPayment = notification.type === 'payment';
 
                 return (
                    <React.Fragment key={notification.id}>
                       {showHeader && (
-                         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1 mt-2 sticky top-16 z-0 bg-slate-50 dark:bg-slate-950 py-1">{group}</h3>
+                         <div className="sticky top-[108px] z-10 py-2 bg-[#F2F2F7] dark:bg-slate-950/95 backdrop-blur-sm -mx-4 px-4 transition-all">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-1">{group}</h3>
+                         </div>
                       )}
                       
                       <div 
-                         className={`relative p-4 rounded-2xl border transition-all duration-300 ${
-                            !notification.is_read 
-                            ? `bg-white dark:bg-slate-900 border-${themeColor}-200 dark:border-${themeColor}-900 shadow-lg shadow-${themeColor}-50 dark:shadow-none` 
-                            : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-90'
-                         }`}
+                         className={`relative overflow-hidden rounded-[1.5rem] transition-all duration-300 group
+                            ${!notification.is_read 
+                                ? 'bg-white dark:bg-slate-900 shadow-lg shadow-blue-100 dark:shadow-none scale-[1.01]' 
+                                : 'bg-white/60 dark:bg-slate-900/60 shadow-sm border border-transparent'
+                            }
+                         `}
                       >
-                         {!notification.is_read && !isRequest && (
-                            <span className={`absolute top-4 right-4 w-2 h-2 rounded-full shadow-sm animate-pulse bg-${themeColor}-500`}></span>
-                         )}
-                         
-                         <div className="flex gap-4">
-                            <div className={`w-12 h-12 rounded-2xl shrink-0 flex items-center justify-center ${getBgColor(notification.type)}`}>
+                         {/* Card Content */}
+                         <div className="p-4 flex gap-4 relative z-10">
+                            
+                            {/* Icon Box (Squircle) */}
+                            <div className={`w-12 h-12 rounded-2xl shrink-0 flex items-center justify-center shadow-sm ${getThemeColors(notification.type)}`}>
                                {getIcon(notification.type)}
                             </div>
-                            <div className="flex-1 min-w-0">
-                               
-                               {/* Special Layout for Payment Notifications (Worker View) */}
-                               {notification.type === 'payment' ? (
-                                  <div>
-                                     <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">পেমেন্ট রিসিভড</p>
-                                     <p className="text-lg font-bold text-slate-800 dark:text-white leading-tight mb-1">
-                                        {displayAmount || 'টাকা'} জমা হয়েছে
-                                     </p>
-                                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                                        আপনার অ্যাকাউন্টে ব্যালেন্স আপডেট করা হয়েছে।
-                                     </p>
-                                  </div>
-                               ) : (
-                                  /* Standard Layout */
-                                  <div className="pr-4">
-                                     <p className={`text-sm leading-relaxed ${!notification.is_read ? 'text-slate-800 dark:text-white font-bold' : 'text-slate-600 dark:text-slate-400'}`}>
-                                        {notification.message}
-                                     </p>
+
+                            <div className="flex-1 min-w-0 pt-0.5">
+                               {/* Payment Special Header */}
+                               {isPayment && (
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                     <Sparkles size={12} className="text-emerald-500 fill-emerald-500" />
+                                     <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">পেমেন্ট রিসিভড</span>
                                   </div>
                                )}
-                               
-                               {/* Action Cards Logic */}
+
+                               {/* Message Body */}
+                               <div className="flex justify-between items-start">
+                                  <div className="pr-6">
+                                     {isPayment ? (
+                                        <>
+                                            <p className="text-xl font-extrabold text-slate-800 dark:text-white leading-tight mb-1">
+                                                {displayAmount || 'টাকা'} জমা হয়েছে
+                                            </p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                                আপনার বর্তমান ব্যালেন্স আপডেট করা হয়েছে।
+                                            </p>
+                                        </>
+                                     ) : (
+                                        <p className={`text-sm leading-snug ${!notification.is_read ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-600 dark:text-slate-400 font-medium'}`}>
+                                            {notification.message}
+                                        </p>
+                                     )}
+                                  </div>
+                                  
+                                  {/* Unread Dot (iOS Style) */}
+                                  {!notification.is_read && !isRequest && (
+                                     <div className="w-2.5 h-2.5 bg-blue-500 rounded-full shrink-0 shadow-sm animate-pulse mt-1.5"></div>
+                                  )}
+                               </div>
+
+                               {/* Action Buttons (iOS Style) */}
                                {isRequest && !notification.is_read && (
-                                  <div className="mt-3 flex gap-3">
+                                  <div className="mt-4 flex gap-3">
                                      <button 
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if(notification.type === 'project_request') handleApproveProject(notification.id, notification.metadata);
                                             if(notification.type === 'attendance_request') handleApproveAttendance(notification.id, notification.metadata);
                                             if(notification.type === 'advance_request') handleApproveAdvance(notification.id, notification.metadata);
+                                            if(notification.type === 'profile_update_request') handleApproveProfileUpdate(notification.id, notification.metadata);
                                         }}
-                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-100 dark:shadow-none active:scale-95"
+                                        className="flex-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 py-3 rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-transform"
                                      >
                                         গ্রহণ করুন
                                      </button>
@@ -223,27 +269,26 @@ export const Notifications = () => {
                                             if(notification.type === 'project_request') handleDeclineProject(notification.id);
                                             if(notification.type === 'attendance_request') handleDeclineAttendance(notification.id);
                                             if(notification.type === 'advance_request') handleDeclineAdvance(notification.id);
+                                            if(notification.type === 'profile_update_request') handleDeclineProfileUpdate(notification.id);
                                         }}
-                                        className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-slate-200 dark:border-slate-700"
+                                        className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-3 rounded-xl text-xs font-bold active:scale-95 transition-transform"
                                      >
                                         বাতিল
                                      </button>
                                   </div>
                                )}
-                               
-                               <div className="flex items-center justify-between mt-3 border-t border-slate-50 dark:border-slate-800 pt-2">
-                                  <div className="flex items-center gap-1 text-slate-400">
-                                     <Clock size={10} />
-                                     <p className="text-[10px] font-medium">
-                                        {new Date(notification.date).toLocaleTimeString('bn-BD', {hour: '2-digit', minute:'2-digit'})}
-                                     </p>
-                                  </div>
-                                  {notification.is_read && <span className="text-[10px] text-slate-400 flex items-center gap-0.5"><Check size={10}/>Seen</span>}
+
+                               {/* Time Footer */}
+                               <div className="mt-2.5 flex items-center gap-1.5 text-slate-400">
+                                  {notification.is_read && <CheckCheck size={12} className="text-blue-500" />}
+                                  <p className="text-[10px] font-semibold">
+                                     {new Date(notification.date).toLocaleTimeString('bn-BD', {hour: '2-digit', minute:'2-digit'})}
+                                  </p>
                                </div>
                             </div>
                          </div>
-                         
-                         {/* Mark as read overlay - Only for non-request types or already read ones */}
+
+                         {/* Click handler for marking read (Invisible Overlay) */}
                          {!isRequest && !notification.is_read && (
                             <button 
                               onClick={() => markNotificationAsRead(notification.id)}

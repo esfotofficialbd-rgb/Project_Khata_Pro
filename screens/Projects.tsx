@@ -66,7 +66,7 @@ export const Projects = () => {
     return 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     let budget = projectMode === 'fixed' ? Number(formData.budget_amount) : projectMode === 'sqft' ? getCalculatedBudget() : 0;
     
@@ -88,13 +88,19 @@ export const Projects = () => {
     };
 
     if (user?.role === 'supervisor') {
-        requestProject(newProject, user.full_name);
-        alert('আপনার অনুরোধ ঠিকাদারের কাছে পাঠানো হয়েছে।');
+        const success = await requestProject(newProject, user.full_name);
+        if (success) {
+            alert('আপনার অনুরোধ ঠিকাদারের কাছে পাঠানো হয়েছে।');
+            setIsModalOpen(false);
+            setFormData({ project_name: '', client_name: '', client_phone: '', location: '', budget_amount: '', sqft_rate: '', total_area: '', mistri_rate: '', helper_rate: '' });
+        }
     } else {
-        addProject(newProject);
+        const success = await addProject(newProject);
+        if (success) {
+            setIsModalOpen(false);
+            setFormData({ project_name: '', client_name: '', client_phone: '', location: '', budget_amount: '', sqft_rate: '', total_area: '', mistri_rate: '', helper_rate: '' });
+        }
     }
-    setIsModalOpen(false);
-    setFormData({ project_name: '', client_name: '', client_phone: '', location: '', budget_amount: '', sqft_rate: '', total_area: '', mistri_rate: '', helper_rate: '' });
   };
 
   // Consistent Input Styles (Theme Aware)

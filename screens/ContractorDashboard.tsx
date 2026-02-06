@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin, UserPlus } from 'lucide-react';
+import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin, UserPlus, Sparkles, AlertCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
 import { Transaction } from '../types';
 import { useAuth } from '../context/SessionContext';
@@ -36,16 +36,27 @@ export const ContractorDashboard = () => {
   const activeProjects = projects.filter(p => p.status === 'active').length;
   const workers = users.filter(u => u.role === 'worker' || u.role === 'supervisor');
 
-  // --- SMART FEED LOGIC (Updated Feature 4) ---
-  const feedItems = useMemo(() => {
+  // --- SMART FEED LOGIC (ENHANCED) ---
+  const carouselItems = useMemo(() => {
      let items: any[] = [];
 
-     // 1. Total Due Alert (If high)
-     if (stats.totalDue > 5000) {
+     // 1. Specific High Due Alert
+     const highDueWorker = users.find(u => u.balance > 3000);
+     if (highDueWorker) {
         items.push({
-            id: 'due-alert',
-            title: 'বকেয়া অ্যালার্ট',
-            desc: `মোট বকেয়া বেতন: ৳${stats.totalDue.toLocaleString()}`,
+            id: 'due-alert-high',
+            title: 'পেমেন্ট বকেয়া',
+            desc: `${highDueWorker.full_name}-এর বকেয়া ৳${highDueWorker.balance.toLocaleString()} ছাড়িয়ে গেছে।`,
+            icon: Wallet,
+            color: 'text-rose-600 dark:text-rose-400',
+            bg: 'bg-rose-50 dark:bg-rose-900/30',
+            border: 'border-rose-100 dark:border-rose-800'
+        });
+     } else if (stats.totalDue > 10000) {
+        items.push({
+            id: 'due-alert-total',
+            title: 'মোট বকেয়া অ্যালার্ট',
+            desc: `মোট বকেয়া বেতন: ৳${stats.totalDue.toLocaleString()} (সকল কর্মী)`,
             icon: Wallet,
             color: 'text-amber-600 dark:text-amber-400',
             bg: 'bg-amber-50 dark:bg-amber-900/30',
@@ -53,152 +64,191 @@ export const ContractorDashboard = () => {
         });
      }
 
-     // 2. New Users Joined (Last 3 days)
-     const recentUsers = users.filter(u => {
-         // Assuming users have created_at, fallback to false if not present yet
-         if (!u.created_at) return false;
-         const created = new Date(u.created_at);
-         const threeDaysAgo = new Date();
-         threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-         return created > threeDaysAgo && u.role !== 'contractor';
-     });
-
-     recentUsers.slice(0, 2).forEach(u => {
-         items.push({
-             id: `new-user-${u.id}`,
-             title: `নতুন ${u.role === 'worker' ? 'কর্মী' : 'সুপারভাইজার'}`,
-             desc: `${u.full_name} টিমে যুক্ত হয়েছেন।`,
-             icon: UserPlus,
-             color: 'text-purple-600 dark:text-purple-400',
-             bg: 'bg-purple-50 dark:bg-purple-900/30',
-             border: 'border-purple-100 dark:border-purple-800'
-         });
-     });
-
-     // 3. New Projects (Last 7 days)
-     const recentProjects = projects.filter(p => {
-         if(!p.created_at) return false;
-         const created = new Date(p.created_at);
-         const weekAgo = new Date();
-         weekAgo.setDate(weekAgo.getDate() - 7);
-         return created > weekAgo;
-     });
-
-     recentProjects.slice(0, 1).forEach(p => {
-         items.push({
-             id: `new-project-${p.id}`,
-             title: 'নতুন প্রজেক্ট',
-             desc: `${p.project_name} শুরু হয়েছে।`,
-             icon: Briefcase,
-             color: 'text-blue-600 dark:text-blue-400',
-             bg: 'bg-blue-50 dark:bg-blue-900/30',
-             border: 'border-blue-100 dark:border-blue-800'
-         });
-     });
-
-     // 4. Today's Expense
+     // 2. Today's Expense Breakdown
      if(stats.totalExpense > 0) {
+        const laborCost = attendance.filter(a => a.date === today).reduce((sum, a) => sum + a.amount, 0);
+        const materialCost = stats.totalExpense - laborCost;
+        
         items.push({
             id: 'daily-expense',
-            title: 'আজকের খরচ',
-            desc: `আজ মোট খরচ হয়েছে: ৳${stats.totalExpense.toLocaleString()}`,
+            title: 'আজকের হিসাব',
+            desc: `লেবার: ৳${laborCost.toLocaleString()} | ম্যাটেরিয়াল: ৳${materialCost.toLocaleString()}`,
             icon: TrendingUp,
-            color: 'text-rose-600 dark:text-rose-400',
-            bg: 'bg-rose-50 dark:bg-rose-900/30',
-            border: 'border-rose-100 dark:border-rose-800'
+            color: 'text-blue-600 dark:text-blue-400',
+            bg: 'bg-blue-50 dark:bg-blue-900/30',
+            border: 'border-blue-100 dark:border-blue-800'
         });
      }
 
-     // 5. Attendance Summary
-     if(stats.totalPresent > 0) {
-        items.push({
-            id: 'daily-attendance',
-            title: 'সাইট উপস্থিতি',
-            desc: `আজ ${stats.totalPresent} জন কর্মী উপস্থিত আছেন।`,
-            icon: Users,
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bg: 'bg-emerald-50 dark:bg-emerald-900/30',
-            border: 'border-emerald-100 dark:border-emerald-800'
-        });
+     // 3. Active Site Highlight
+     const activeProjs = projects.filter(p => p.status === 'active');
+     if (activeProjs.length > 0) {
+         let topProject = activeProjs[0];
+         let maxWorkers = 0;
+         
+         activeProjs.forEach(p => {
+             const count = attendance.filter(a => a.project_id === p.id && a.date === today).length;
+             if(count > maxWorkers) {
+                 maxWorkers = count;
+                 topProject = p;
+             }
+         });
+
+         if (maxWorkers > 0) {
+             items.push({
+                id: 'site-update',
+                title: 'সাইট আপডেট',
+                desc: `${topProject.project_name}-এ আজ সবচেয়ে বেশি (${maxWorkers} জন) কর্মী আছে।`,
+                icon: Hammer,
+                color: 'text-purple-600 dark:text-purple-400',
+                bg: 'bg-purple-50 dark:bg-purple-900/30',
+                border: 'border-purple-100 dark:border-purple-800'
+             });
+         } else {
+             // If no attendance yet (e.g. early morning)
+             const currentHour = new Date().getHours();
+             if (currentHour >= 9 && currentHour <= 12) {
+                 items.push({
+                    id: 'no-att-alert',
+                    title: 'উপস্থিতি শূন্য',
+                    desc: 'আজকের হাজিরা এখনো এন্ট্রি করা হয়নি। সুপারভাইজারকে কল দিন।',
+                    icon: AlertCircle,
+                    color: 'text-orange-600 dark:text-orange-400',
+                    bg: 'bg-orange-50 dark:bg-orange-900/30',
+                    border: 'border-orange-100 dark:border-orange-800'
+                 });
+             } else {
+                 items.push({
+                    id: 'proj-status',
+                    title: 'প্রজেক্ট স্ট্যাটাস',
+                    desc: `${activeProjs.length}টি প্রজেক্ট বর্তমানে চলমান আছে।`,
+                    icon: Briefcase,
+                    color: 'text-emerald-600 dark:text-emerald-400',
+                    bg: 'bg-emerald-50 dark:bg-emerald-900/30',
+                    border: 'border-emerald-100 dark:border-emerald-800'
+                 });
+             }
+         }
      }
 
      // Fallback
      if(items.length === 0) {
          items.push({
              id: 'welcome',
-             title: 'স্বাগতম',
+             title: 'শুভ দিন',
              desc: 'আপনার প্রজেক্ট ম্যানেজমেন্ট ড্যাশবোর্ডে স্বাগতম।',
              icon: Sun,
-             color: 'text-orange-600',
-             bg: 'bg-orange-50',
-             border: 'border-orange-100'
+             color: 'text-orange-600 dark:text-orange-400',
+             bg: 'bg-orange-50 dark:bg-orange-900/30',
+             border: 'border-orange-100 dark:border-orange-800'
          });
      }
 
      return items;
-  }, [stats, users, projects]);
+  }, [stats, users, attendance, projects, today]);
 
   // Feed Auto-Rotation
   useEffect(() => {
-    if (feedItems.length <= 1 || isPaused) return;
+    if (carouselItems.length <= 1 || isPaused) return;
     const interval = setInterval(() => {
-      setCurrentFeedIndex((prev) => (prev + 1) % feedItems.length);
+      setCurrentFeedIndex((prev) => (prev + 1) % carouselItems.length);
     }, 4000); 
     return () => clearInterval(interval);
-  }, [feedItems.length, isPaused]);
+  }, [carouselItems.length, isPaused]);
 
-  const currentItem = feedItems[currentFeedIndex] || feedItems[0];
+  const currentItem = carouselItems[currentFeedIndex] || carouselItems[0];
 
   // --- RECENT ACTIVITY LOGIC ---
-  const recentActivities = useMemo(() => {
-      const acts: any[] = [];
+  const smartActivityFeed = useMemo(() => {
+      let activities: any[] = [];
+
+      const safeDate = (d: string) => {
+          const date = new Date(d);
+          return isNaN(date.getTime()) ? new Date() : date;
+      };
+
+      // 1. Projects
+      projects.forEach(p => {
+          if (p.created_at) {
+              activities.push({
+                  id: `proj-${p.id}`,
+                  date: safeDate(p.created_at),
+                  title: 'নতুন প্রজেক্ট',
+                  desc: `"${p.project_name}" প্রজেক্ট শুরু হয়েছে।`,
+                  icon: Briefcase,
+                  color: 'text-blue-600',
+                  bg: 'bg-blue-100 dark:bg-blue-900/30'
+              });
+          }
+      });
+
+      // 2. Transactions
+      transactions.slice(0, 10).forEach(t => {
+          activities.push({
+              id: `tx-${t.id}`,
+              date: safeDate(t.created_at || t.date),
+              title: t.type === 'income' ? 'জমা হয়েছে' : t.type === 'salary' ? 'বেতন প্রদান' : 'খরচ',
+              desc: `${t.description} - ৳${t.amount}`,
+              icon: t.type === 'income' ? ArrowDownLeft : ArrowUpRight,
+              color: t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
+              bg: t.type === 'income' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-rose-100 dark:bg-rose-900/30'
+          });
+      });
+
+      // 3. Work Reports
+      workReports.forEach(r => {
+          const pName = projects.find(p => p.id === r.project_id)?.project_name || 'Project';
+          activities.push({
+              id: `rep-${r.id}`,
+              date: safeDate(r.created_at || r.date),
+              title: 'কাজের রিপোর্ট',
+              desc: `${pName}: ${r.description.substring(0, 30)}...`,
+              icon: FileText,
+              color: 'text-indigo-600',
+              bg: 'bg-indigo-100 dark:bg-indigo-900/30'
+          });
+      });
+
+      // 4. Recent Attendance
+      const recentAttendance = attendance
+        .filter(a => a.date === today)
+        .sort((a,b) => safeDate(b.created_at).getTime() - safeDate(a.created_at).getTime())
+        .slice(0, 3); 
+
+      recentAttendance.forEach(a => {
+          const wName = users.find(u => u.id === a.worker_id)?.full_name || 'Worker';
+          activities.push({
+              id: `att-${a.id}`,
+              date: safeDate(a.created_at),
+              title: 'হাজিরা আপডেট',
+              desc: `${wName} আজ ${a.status === 'P' ? 'উপস্থিত' : 'হাফ-ডে'}।`,
+              icon: CheckCircle,
+              color: 'text-green-600',
+              bg: 'bg-green-100 dark:bg-green-900/30'
+          });
+      });
+
+      return activities.sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 15);
+  }, [projects, transactions, workReports, attendance, users, today]);
+
+  const formatTimeAgo = (date: Date) => {
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
       
-      // Transactions
-      transactions.slice(0, 5).forEach(t => acts.push({
-          id: t.id,
-          type: 'money',
-          icon: t.type === 'income' ? ArrowDownLeft : ArrowUpRight,
-          title: t.type === 'income' ? 'টাকা জমা' : t.type === 'salary' ? 'বেতন প্রদান' : 'খরচ',
-          desc: t.description,
-          amount: t.amount,
-          date: t.date,
-          color: t.type === 'income' ? 'text-emerald-600' : 'text-rose-600',
-          bg: t.type === 'income' ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20'
-      }));
-
-      // Work Reports
-      workReports.slice(0, 3).forEach(r => acts.push({
-          id: r.id,
-          type: 'report',
-          icon: FileText,
-          title: 'কাজের রিপোর্ট',
-          desc: projects.find(p=>p.id===r.project_id)?.project_name || 'Project',
-          date: r.date,
-          color: 'text-indigo-600',
-          bg: 'bg-indigo-50 dark:bg-indigo-900/20'
-      }));
-
-      // Material Logs
-      materialLogs.slice(0, 3).forEach(m => acts.push({
-          id: m.id,
-          type: 'material',
-          icon: Package,
-          title: 'ম্যাটেরিয়াল',
-          desc: `${m.quantity} ${m.unit} ${m.item_name}`,
-          date: m.date,
-          color: 'text-orange-600',
-          bg: 'bg-orange-50 dark:bg-orange-900/20'
-      }));
-
-      return acts.sort((a,b) => b.id.localeCompare(a.id)).slice(0, 5);
-  }, [transactions, workReports, materialLogs, projects]);
+      if (diffInSeconds < 60) return 'এইমাত্র';
+      const diffInMinutes = Math.floor(diffInSeconds / 60);
+      if (diffInMinutes < 60) return `${diffInMinutes} মি. আগে`;
+      const diffInHours = Math.floor(diffInMinutes / 60);
+      if (diffInHours < 24) return `${diffInHours} ঘণ্টা আগে`;
+      return date.toLocaleDateString('bn-BD', {day: 'numeric', month:'short'});
+  };
 
   // Modals & Forms
   const [activeModal, setActiveModal] = useState<'income' | 'expense' | 'payment' | null>(null);
   const [txForm, setTxForm] = useState({ amount: '', description: '', projectId: '' });
   const [payForm, setPayForm] = useState({ workerId: '', amount: '' });
 
-  const handleTxSubmit = (e: React.FormEvent) => {
+  const handleTxSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeModal) return;
     const newTx: Transaction = {
@@ -209,7 +259,7 @@ export const ContractorDashboard = () => {
       project_id: txForm.projectId || undefined,
       date: today
     };
-    addTransaction(newTx);
+    await addTransaction(newTx);
     setActiveModal(null);
     setTxForm({ amount: '', description: '', projectId: '' });
   };
@@ -256,17 +306,11 @@ export const ContractorDashboard = () => {
   }, [transactions, attendance]);
 
   const selectedWorkerBalance = payForm.workerId ? getWorkerBalance(payForm.workerId) : 0;
-
-  // Consistent input styling
   const inputClass = "w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 text-sm font-bold text-slate-800 dark:text-white placeholder-slate-400 transition-all shadow-sm";
 
-  // --- SKELETON LOADER COMPONENT ---
   const DashboardSkeleton = () => (
     <div className="space-y-4 animate-pulse">
-       {/* Main Card Skeleton */}
        <div className="h-64 rounded-[2.2rem] bg-slate-200 dark:bg-slate-800 w-full mb-4"></div>
-       
-       {/* Quick Actions Grid Skeleton */}
        <div>
           <div className="h-4 w-32 bg-slate-200 dark:bg-slate-800 rounded-full mb-3"></div>
           <div className="grid grid-cols-4 gap-3">
@@ -275,22 +319,12 @@ export const ContractorDashboard = () => {
              ))}
           </div>
        </div>
-
-       {/* Chart Skeleton */}
        <div className="h-48 rounded-[1.5rem] bg-slate-200 dark:bg-slate-800 w-full"></div>
-
-       {/* Recent List Skeleton */}
        <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] border border-slate-100 dark:border-slate-800">
           <div className="h-4 w-40 bg-slate-200 dark:bg-slate-800 rounded-full mb-4"></div>
           <div className="space-y-3">
              {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center gap-3">
-                   <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-                   <div className="flex-1 space-y-2">
-                      <div className="h-3 w-3/4 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-                      <div className="h-2 w-1/2 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-                   </div>
-                </div>
+                <div key={i} className="h-14 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
              ))}
           </div>
        </div>
@@ -303,13 +337,11 @@ export const ContractorDashboard = () => {
       {/* Compact Header & Smart Feed */}
       <div className="bg-gradient-to-b from-blue-50/80 to-white dark:from-slate-800 dark:to-slate-900 px-4 pt-3 pb-5 rounded-b-[2rem] shadow-sm border-b border-blue-100/50 dark:border-slate-700 mb-3 relative overflow-hidden">
          
-         {/* Welcome Header */}
          <div className="flex justify-between items-center mb-4 relative z-10">
             <div>
                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1">
                   <Sun size={10} className="text-orange-500" /> {greeting}
                </p>
-               {/* ROLE TITLE (Deep Blue) */}
                <h1 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight mt-0.5 truncate max-w-[200px]">
                   ঠিকাদার
                </h1>
@@ -322,7 +354,12 @@ export const ContractorDashboard = () => {
             </div>
          </div>
 
-         {/* SMART FEED - Clean White Look */}
+         {/* SMART FEED SECTION */}
+         <div className="mb-2 flex items-center gap-1.5 opacity-80">
+            <Sparkles size={12} className="text-blue-500" />
+            <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">স্মার্ট ফিড</h3>
+         </div>
+
          <div 
             className={`w-full relative overflow-hidden rounded-xl bg-white dark:bg-slate-800 border transition-all duration-500 shadow-sm ${currentItem.border}`}
             onMouseEnter={() => setIsPaused(true)}
@@ -330,8 +367,7 @@ export const ContractorDashboard = () => {
             onTouchStart={() => setIsPaused(true)}
             onTouchEnd={() => setIsPaused(false)}
          >
-            {/* Progress Bar */}
-            {feedItems.length > 1 && (
+            {carouselItems.length > 1 && (
                <div className="absolute top-0 left-0 w-full h-0.5 bg-slate-100 dark:bg-slate-700">
                   <div 
                      key={currentFeedIndex} 
@@ -349,9 +385,9 @@ export const ContractorDashboard = () => {
                      <h3 className="font-bold text-slate-800 dark:text-white text-xs truncate leading-tight">
                         {currentItem.title}
                      </h3>
-                     {feedItems.length > 1 && (
+                     {carouselItems.length > 1 && (
                         <span className="text-[9px] font-bold text-slate-400">
-                           {currentFeedIndex + 1}/{feedItems.length}
+                           {currentFeedIndex + 1}/{carouselItems.length}
                         </span>
                      )}
                   </div>
@@ -369,17 +405,12 @@ export const ContractorDashboard = () => {
             <DashboardSkeleton />
          ) : (
             <>
-                {/* MAIN FINANCIAL & STATUS CARD (Merged) - Premium Theme (NO BLACK) */}
+                {/* MAIN FINANCIAL CARD */}
                 <div className="relative rounded-[2.2rem] overflow-hidden shadow-xl shadow-blue-900/20 dark:shadow-none mb-3 group transition-all">
-                    {/* Premium Royal Blue Gradient Background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-700 via-indigo-700 to-slate-800"></div>
-                    
-                    {/* Texture Overlay */}
                     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
                     
                     <div className="relative p-6 text-white">
-                        
-                        {/* Top Section: Money */}
                         <div className="flex justify-between items-start mb-6">
                         <div>
                             <div className="flex items-center gap-1.5 mb-1 opacity-90">
@@ -398,56 +429,50 @@ export const ContractorDashboard = () => {
                         </div>
                         </div>
 
-                        {/* Bottom Section: Grid Stats (Merged from removed cards) */}
                         <div className="grid grid-cols-2 gap-3">
-                        
-                        {/* Projects Stat */}
-                        <button onClick={() => navigate('/projects')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-blue-400/20 p-2 rounded-lg text-blue-200">
-                                    <Briefcase size={16} />
+                            <button onClick={() => navigate('/projects')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-blue-400/20 p-2 rounded-lg text-blue-200">
+                                        <Briefcase size={16} />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-lg font-bold text-white leading-none">{activeProjects}</p>
+                                        <p className="text-[9px] font-bold text-blue-200 uppercase mt-0.5">প্রজেক্ট</p>
+                                    </div>
                                 </div>
-                                <div className="text-left">
-                                    <p className="text-lg font-bold text-white leading-none">{activeProjects}</p>
-                                    <p className="text-[9px] font-bold text-blue-200 uppercase mt-0.5">প্রজেক্ট</p>
-                                </div>
-                            </div>
-                            <ChevronRight size={14} className="text-blue-300 group-hover/item:text-white transition-colors" />
-                        </button>
+                                <ChevronRight size={14} className="text-blue-300 group-hover/item:text-white transition-colors" />
+                            </button>
 
-                        {/* Workers Stat */}
-                        <button onClick={() => navigate('/workers')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-emerald-400/20 p-2 rounded-lg text-emerald-200">
-                                    <Users size={16} />
+                            <button onClick={() => navigate('/workers')} className="bg-white/10 hover:bg-white/20 active:scale-95 transition-all backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between group/item">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-emerald-400/20 p-2 rounded-lg text-emerald-200">
+                                        <Users size={16} />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-lg font-bold text-white leading-none">{activeWorkers}</p>
+                                        <p className="text-[9px] font-bold text-emerald-200 uppercase mt-0.5">কর্মী</p>
+                                    </div>
                                 </div>
-                                <div className="text-left">
-                                    <p className="text-lg font-bold text-white leading-none">{activeWorkers}</p>
-                                    <p className="text-[9px] font-bold text-emerald-200 uppercase mt-0.5">কর্মী</p>
-                                </div>
-                            </div>
-                            <ChevronRight size={14} className="text-emerald-300 group-hover/item:text-white transition-colors" />
-                        </button>
+                                <ChevronRight size={14} className="text-emerald-300 group-hover/item:text-white transition-colors" />
+                            </button>
 
-                        {/* Expense Stat */}
-                        <div className="col-span-2 bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between mt-1">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-rose-400/20 p-2 rounded-lg text-rose-200">
-                                    <TrendingUp size={16} />
+                            <div className="col-span-2 bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/10 flex items-center justify-between mt-1">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-rose-400/20 p-2 rounded-lg text-rose-200">
+                                        <TrendingUp size={16} />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[10px] font-bold text-rose-200 uppercase">আজকের খরচ</p>
+                                        <p className="text-sm font-bold text-white">৳ {stats.totalExpense.toLocaleString()}</p>
+                                    </div>
                                 </div>
-                                <div className="text-left">
-                                    <p className="text-[10px] font-bold text-rose-200 uppercase">আজকের খরচ</p>
-                                    <p className="text-sm font-bold text-white">৳ {stats.totalExpense.toLocaleString()}</p>
-                                </div>
+                                <span className="text-[9px] bg-rose-500/20 text-rose-100 px-2 py-1 rounded font-bold border border-rose-400/20">আজ</span>
                             </div>
-                            <span className="text-[9px] bg-rose-500/20 text-rose-100 px-2 py-1 rounded font-bold border border-rose-400/20">আজ</span>
-                        </div>
-
                         </div>
                     </div>
                 </div>
 
-                {/* Quick Actions Grid - Clean Tile Design */}
+                {/* Quick Actions */}
                 <div>
                     <h3 className="text-slate-700 dark:text-white font-bold text-xs mb-3 flex items-center gap-2 uppercase tracking-wider">
                     <span className="w-1 h-3 bg-blue-600 rounded-full"></span>
@@ -472,7 +497,6 @@ export const ContractorDashboard = () => {
                         className="flex flex-col items-center gap-1.5 group active:scale-95 transition-transform"
                         >
                         <div className="bg-white dark:bg-slate-800 w-full aspect-square rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm group-hover:border-blue-300 dark:group-hover:border-blue-600 group-hover:shadow-md transition-all relative overflow-hidden">
-                            {/* Hover Glow */}
                             <div className="absolute inset-0 bg-gradient-to-tr from-slate-50 to-white opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             <item.icon size={22} className={`${item.color} relative z-10`} strokeWidth={2} />
                         </div>
@@ -482,7 +506,7 @@ export const ContractorDashboard = () => {
                     </div>
                 </div>
 
-                {/* Analytics Section - Card Style */}
+                {/* Analytics */}
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
                     <div className="flex justify-between items-center mb-4">
                     <div>
@@ -497,7 +521,6 @@ export const ContractorDashboard = () => {
                     </button>
                     </div>
                     
-                    {/* Fixed Height Container for Chart to prevent width(-1) errors */}
                     <div className="w-full h-[160px]">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 0 }}>
@@ -531,37 +554,42 @@ export const ContractorDashboard = () => {
                     </div>
                 </div>
 
-                {/* RECENT ACTIVITY LIST - NEW SECTION */}
-                <div className="bg-white dark:bg-slate-900 p-4 rounded-[1.5rem] shadow-sm border border-slate-100 dark:border-slate-800">
-                    <h3 className="text-slate-800 dark:text-white font-bold text-xs mb-3 flex items-center gap-2 uppercase tracking-wide">
-                    <Clock size={14} className="text-purple-500" />
-                    সাম্প্রতিক কার্যক্রম
+                {/* RECENT ACTIVITY */}
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-[1.8rem] shadow-sm border border-slate-100 dark:border-slate-800">
+                    <h3 className="text-slate-800 dark:text-white font-bold text-xs mb-4 flex items-center gap-2 uppercase tracking-wide">
+                        <Activity size={14} className="text-indigo-500" />
+                        সাম্প্রতিক কার্যক্রম
                     </h3>
                     
-                    <div className="space-y-3">
-                    {recentActivities.length === 0 ? (
-                        <div className="text-center py-6 text-slate-400 text-xs font-medium">কোন সাম্প্রতিক কাজ নেই</div>
-                    ) : (
-                        recentActivities.map((act) => (
-                            <div key={act.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer group">
-                                <div className={`p-2.5 rounded-xl ${act.bg} ${act.color} shrink-0`}>
-                                <act.icon size={18} strokeWidth={2.5} />
+                    <div className="space-y-0 relative">
+                        {/* Vertical Timeline Line */}
+                        <div className="absolute left-[19px] top-2 bottom-4 w-0.5 bg-slate-100 dark:bg-slate-800"></div>
+
+                        {smartActivityFeed.length === 0 ? (
+                            <div className="text-center py-8 text-slate-400 text-xs font-medium">কোন অ্যাক্টিভিটি পাওয়া যায়নি</div>
+                        ) : (
+                            smartActivityFeed.map((act) => (
+                                <div key={act.id} className="relative pl-12 pb-5 last:pb-0 group">
+                                    {/* Timeline Dot */}
+                                    <div className={`absolute left-0 w-10 h-10 rounded-full flex items-center justify-center z-10 border-4 border-white dark:border-slate-900 ${act.bg} ${act.color}`}>
+                                        <act.icon size={16} strokeWidth={2.5} />
+                                    </div>
+                                    
+                                    {/* Content */}
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex justify-between items-start">
+                                            <p className="font-bold text-slate-800 dark:text-white text-xs">{act.title}</p>
+                                            <span className="text-[9px] font-bold text-slate-400 bg-slate-50 dark:bg-slate-800 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                                {formatTimeAgo(act.date)}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug font-medium line-clamp-2">
+                                            {act.desc}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                <div className="flex justify-between items-center mb-0.5">
-                                    <p className="font-bold text-slate-800 dark:text-white text-xs truncate">{act.title}</p>
-                                    <span className="text-[9px] font-bold text-slate-400">{act.date}</span>
-                                </div>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">{act.desc}</p>
-                                </div>
-                                {act.amount && (
-                                <span className={`text-xs font-bold ${act.color}`}>
-                                    {act.type === 'money' && act.icon === ArrowUpRight ? '-' : '+'} ৳{act.amount}
-                                </span>
-                                )}
-                            </div>
-                        ))
-                    )}
+                            ))
+                        )}
                     </div>
                 </div>
             </>

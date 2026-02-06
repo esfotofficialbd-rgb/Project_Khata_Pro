@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
-import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2, Download, ShieldCheck, MapPin, Loader2 } from 'lucide-react';
+import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2, Download, ShieldCheck, MapPin, Loader2, ChevronDown } from 'lucide-react';
 import { Profile } from '../types';
 import QRCode from 'react-qr-code';
 import { useToast } from '../context/ToastContext';
@@ -10,7 +10,7 @@ import { supabase } from '../supabaseClient';
 
 export const WorkerProfile = () => {
   const { user, setUser } = useAuth();
-  const { updateUser, users, attendance } = useData();
+  const { updateUser, users, attendance, requestProfileUpdate } = useData();
   const { toast } = useToast();
   const [showIdCard, setShowIdCard] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -32,11 +32,16 @@ export const WorkerProfile = () => {
     : contractor?.company_name || 'Project Khata';
 
   const isSupervisor = user.role === 'supervisor';
+  const isWorker = user.role === 'worker';
+
+  const workerSkills = ['রাজমিস্ত্রি', 'রডমিস্ত্রি', 'হেল্পার', 'সিনিয়র হেল্পার', 'হাব মিস্ত্রী', 'ইলেকট্রিশিয়ান', 'পেইন্টার'];
 
   const handleEditClick = () => {
     setFormData({
       full_name: user.full_name,
-      avatar_url: user.avatar_url
+      avatar_url: user.avatar_url,
+      phone: user.phone,
+      skill_type: user.skill_type
     });
     setIsEditing(true);
   };
@@ -107,12 +112,18 @@ export const WorkerProfile = () => {
     if (e.target) e.target.value = '';
   };
 
-  const saveProfile = (e: React.FormEvent) => {
+  const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const updatedUser = { ...user, ...formData };
-    updateUser(updatedUser);
-    setUser(updatedUser);
-    setIsEditing(false);
+
+    if (isWorker) {
+        await requestProfileUpdate(user.id, formData);
+        setIsEditing(false);
+    } else {
+        updateUser(updatedUser);
+        setUser(updatedUser);
+        setIsEditing(false);
+    }
   };
 
   const downloadQrCode = (e: React.MouseEvent) => {
@@ -372,13 +383,49 @@ export const WorkerProfile = () => {
                       />
                    </div>
                 </div>
-                
-                <div className={`p-4 rounded-2xl flex gap-3 items-start border border-transparent ${isSupervisor ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300'}`}>
-                   <Briefcase size={18} className="mt-0.5 shrink-0" />
-                   <p className="text-xs leading-relaxed font-medium">
-                      মোবাইল নাম্বার, পদবী বা বেতনের তথ্য পরিবর্তন করতে অনুগ্রহ করে ঠিকাদারের সাথে যোগাযোগ করুন।
-                   </p>
-                </div>
+
+                {isWorker ? (
+                   <>
+                      <div>
+                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase ml-1">মোবাইল নাম্বার</label>
+                         <div className="relative">
+                            <Phone className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                            <input 
+                              name="phone"
+                              value={formData.phone}
+                              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                              className="w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white transition-all shadow-sm"
+                              required
+                            />
+                         </div>
+                      </div>
+
+                      <div>
+                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block uppercase ml-1">কাজের ধরণ</label>
+                         <div className="relative">
+                            <Briefcase className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                            <select 
+                               name="skill_type"
+                               value={formData.skill_type}
+                               onChange={(e) => setFormData({...formData, skill_type: e.target.value})}
+                               className="w-full pl-11 pr-10 py-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white transition-all shadow-sm appearance-none"
+                            >
+                               {workerSkills.map(skill => (
+                                  <option key={skill} value={skill}>{skill}</option>
+                               ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                         </div>
+                      </div>
+                   </>
+                ) : (
+                   <div className={`p-4 rounded-2xl flex gap-3 items-start border border-transparent ${isSupervisor ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300' : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300'}`}>
+                      <Briefcase size={18} className="mt-0.5 shrink-0" />
+                      <p className="text-xs leading-relaxed font-medium">
+                         মোবাইল নাম্বার, পদবী বা বেতনের তথ্য পরিবর্তন করতে অনুগ্রহ করে ঠিকাদারের সাথে যোগাযোগ করুন।
+                      </p>
+                   </div>
+                )}
 
                 <button 
                   type="submit" 
@@ -386,7 +433,7 @@ export const WorkerProfile = () => {
                   className={`w-full py-4 text-white rounded-2xl font-bold shadow-lg mt-2 flex items-center justify-center gap-2 active:scale-95 transition-all text-base disabled:opacity-70 disabled:cursor-not-allowed ${isSupervisor ? 'bg-purple-600 hover:bg-purple-700 shadow-purple-200 dark:shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 dark:shadow-none'}`}
                 >
                    {isProcessingImage ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
-                   সেভ করুন
+                   {isWorker ? 'আপডেটের জন্য অনুরোধ করুন' : 'সেভ করুন'}
                 </button>
              </form>
            </div>

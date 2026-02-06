@@ -8,6 +8,15 @@ import { Building2, HardHat, UserCog, ArrowRight, Mail, Phone, Lock, Eye, EyeOff
 import { supabase } from '../supabaseClient';
 import { APP_NAME } from '../constants';
 
+const normalizeBanglaDigits = (str: string) => {
+  const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  const englishDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  return str.split('').map(char => {
+    const index = banglaDigits.indexOf(char);
+    return index > -1 ? englishDigits[index] : char;
+  }).join('');
+};
+
 export const Login = () => {
   const [role, setRole] = useState<UserRole>('contractor');
   const [identifier, setIdentifier] = useState(''); 
@@ -51,24 +60,47 @@ export const Login = () => {
     );
 
     try {
-      let email = identifier.trim();
+      let email = normalizeBanglaDigits(identifier.trim());
+      const pass = normalizeBanglaDigits(password.trim());
+      let cleanPhoneInput = '';
       
-      // Formatting Logic
+      // Formatting Logic for Worker/Supervisor (Phone based login)
       if (role !== 'contractor') {
          if (!email.includes('@')) {
-            const cleanPhone = email.replace(/\D/g, '');
-            if (cleanPhone.length < 11) {
-               throw new Error("মোবাইল নাম্বার সঠিক নয় (কমপক্ষে ১১ ডিজিট)");
+            // Normalize phone: remove non-digits
+            let cleanPhone = email.replace(/\D/g, '');
+            
+            // Handle BD country code (880 -> 0)
+            if (cleanPhone.startsWith('880')) {
+                cleanPhone = cleanPhone.substring(2);
+            }
+            
+            cleanPhoneInput = cleanPhone; // Store for password check logic below
+
+            // Strict 11 digit validation starting with 01
+            if (cleanPhone.length !== 11 || !cleanPhone.startsWith('01')) {
+               throw new Error("সঠিক ১১ ডিজিটের মোবাইল নাম্বার দিন (যেমন: 017...)");
             }
             email = `${cleanPhone}@projectkhata.local`;
          }
+      } else {
+          // Contractor Validation: Should not look like a phone number
+          const potentialPhone = email.replace(/\D/g, '');
+          if ((potentialPhone.length === 11 && potentialPhone.startsWith('01')) || (potentialPhone.length === 13 && potentialPhone.startsWith('8801'))) {
+              throw new Error("ঠিকাদার লগইন এর জন্য আপনার ইমেইল এড্রেস ব্যবহার করুন (মোবাইল নম্বর নয়)।");
+          }
+      }
+
+      // UX Improvement: Check if user typed full phone number as password
+      if (role !== 'contractor' && cleanPhoneInput && pass === cleanPhoneInput) {
+          throw new Error("পাসওয়ার্ড ভুল! দয়া করে মোবাইল নাম্বারের শুধুমাত্র শেষ ৬ ডিজিট পাসওয়ার্ড হিসেবে দিন।");
       }
 
       // Race between login and timeout
       const response: any = await Promise.race([
           supabase.auth.signInWithPassword({
             email: email,
-            password: password.trim(),
+            password: pass,
           }),
           timeoutPromise
       ]);
@@ -77,6 +109,9 @@ export const Login = () => {
 
       if (authError) {
           if (authError.message === 'Invalid login credentials') {
+              if (role !== 'contractor') {
+                  throw new Error("লগইন ব্যর্থ। আপনি কি পাসওয়ার্ড হিসেবে মোবাইল নাম্বারের শেষ ৬ ডিজিট দিয়েছেন?");
+              }
               throw new Error("ইমেইল বা পাসওয়ার্ড ভুল হয়েছে।");
           }
           throw authError;
@@ -241,7 +276,14 @@ export const Login = () => {
             {error && (
                <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-600 animate-pulse shadow-sm">
                   <div className="bg-red-100 p-1.5 rounded-full"><AlertTriangle size={16} className="shrink-0" /></div>
-                  <p className="text-xs font-bold leading-tight">{error}</p>
+                  <div className="flex-1">
+                      <p className="text-xs font-bold leading-tight">{error}</p>
+                      {role !== 'contractor' && (
+                          <p className="text-[10px] text-red-500 mt-1">
+                              টিপস: ডিফল্ট পাসওয়ার্ড হলো মোবাইল নাম্বারের শেষ ৬ ডিজিট।
+                          </p>
+                      )}
+                  </div>
                </div>
             )}
 
@@ -253,9 +295,9 @@ export const Login = () => {
                         {role === 'contractor' ? <Mail size={20}/> : <Phone size={20}/>}
                      </div>
                      <input 
-                       type={role === 'contractor' ? "email" : "tel"}
+                       type={role === 'contractor' ? "email" : "text"}
                        value={identifier}
-                       onChange={(e) => setIdentifier(e.target.value)}
+                       onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                        placeholder={role === 'contractor' ? "name@company.com" : "017xxxxxxxx"}
                        required
@@ -272,7 +314,7 @@ export const Login = () => {
                      <input 
                        type={showPassword ? "text" : "password"}
                        value={password}
-                       onChange={(e) => setPassword(e.target.value)}
+                       onChange={(e) => { setPassword(e.target.value); setError(''); }}
                        className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
                        placeholder="••••••••"
                        required

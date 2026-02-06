@@ -6,6 +6,15 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Phone, Briefcase, UserCog, HardHat, X, ChevronDown, CheckCircle, Plus, MessageSquare, Loader2, AlertTriangle } from 'lucide-react';
 import { Profile } from '../types';
 
+const normalizeBanglaDigits = (str: string) => {
+  const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  const englishDigits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  return str.split('').map(char => {
+    const index = banglaDigits.indexOf(char);
+    return index > -1 ? englishDigits[index] : char;
+  }).join('');
+};
+
 export const WorkersList = () => {
   const { users, projects, addUser } = useData();
   const { user } = useAuth();
@@ -67,7 +76,8 @@ export const WorkersList = () => {
 
   const getPasswordPreview = () => {
     // Show preview based on strictly sanitized phone
-    const cleanPhone = formData.phone.replace(/\D/g, '');
+    const normalized = normalizeBanglaDigits(formData.phone);
+    const cleanPhone = normalized.replace(/\D/g, '');
     if (cleanPhone.length >= 6) {
       return cleanPhone.slice(-6);
     }
@@ -79,8 +89,10 @@ export const WorkersList = () => {
     setIsSubmitting(true);
     setErrorMsg('');
 
-    // Feature 2: Strict Phone Validation Check (Client Side)
-    const cleanPhone = formData.phone.replace(/\D/g, '');
+    // Feature 2: Strict Phone Validation Check (Client Side) with Bangla Normalization
+    const normalizedPhone = normalizeBanglaDigits(formData.phone);
+    const cleanPhone = normalizedPhone.replace(/\D/g, '');
+    
     if (cleanPhone.length !== 11 || !cleanPhone.startsWith('01')) {
         setErrorMsg('সঠিক ১১ ডিজিটের মোবাইল নাম্বার দিন (যেমন: 017...)');
         setIsSubmitting(false);
@@ -99,16 +111,17 @@ export const WorkersList = () => {
 
     if (formRole === 'worker') {
       newUser.skill_type = formData.skill_type;
-      newUser.daily_rate = Number(formData.rate);
+      newUser.daily_rate = Number(normalizeBanglaDigits(formData.rate.toString()));
     } else {
       newUser.designation = 'সাইট সুপারভাইজার';
       newUser.payment_type = formData.payment_type;
       newUser.assigned_project_id = formData.project_id || undefined;
       
+      const rate = Number(normalizeBanglaDigits(formData.rate.toString()));
       if (formData.payment_type === 'daily') {
-        newUser.daily_rate = Number(formData.rate);
+        newUser.daily_rate = rate;
       } else {
-        newUser.monthly_salary = Number(formData.rate);
+        newUser.monthly_salary = rate;
       }
     }
 

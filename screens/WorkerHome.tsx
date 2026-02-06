@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
 import { useToast } from '../context/ToastContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, FileText, Calculator, X, Send, Save, CheckCircle, Calendar, MapPin, Wallet, Coins, Loader2, AlertCircle, StickyNote, Hourglass, Activity, Megaphone, Users, Hammer, UserCheck, Clock, ShieldCheck, Phone, Sun, TrendingUp, PackageCheck, History, ChevronRight } from 'lucide-react';
+import { Bell, FileText, Calculator, X, Send, Save, CheckCircle, Calendar, MapPin, Wallet, Coins, Loader2, AlertCircle, StickyNote, Hourglass, Activity, Megaphone, Users, Hammer, UserCheck, Clock, ShieldCheck, Phone, Sun, TrendingUp, PackageCheck, History, ChevronRight, Sparkles } from 'lucide-react';
 
 export const WorkerHome = () => {
   const { user } = useAuth();
@@ -126,49 +127,82 @@ export const WorkerHome = () => {
 
   const recentActivities = myAttendance.slice(0, 3);
 
+  // --- SMART FEED LOGIC (ENHANCED) ---
   const feedItems = useMemo(() => {
      let items: any[] = [];
-     const recentNotices = publicNotices.sort((a,b) => b.created_at.localeCompare(a.created_at)).slice(0, 3);
-     recentNotices.forEach(notice => {
-         items.push({
-             id: `notice-${notice.id}`,
-             type: 'public_notice',
-             title: 'নোটিশ',
-             desc: notice.message,
-             icon: Megaphone,
-             color: 'text-rose-600',
-             bg: 'bg-rose-50 dark:bg-rose-900/30',
-             border: 'border-rose-200 dark:border-rose-800'
-         });
-     });
-
-     const activeProjects = projects.filter(p => p.status === 'active');
-     activeProjects.forEach(p => {
-        const workerCount = attendance.filter(a => a.project_id === p.id && a.date === today && (a.status === 'P' || a.status === 'H')).length;
-        if (workerCount > 0) {
-            items.push({
-                id: `site-stats-${p.id}`,
-                type: 'site_activity',
-                title: p.project_name,
-                desc: `সাইট আপডেট: ${workerCount} জন শ্রমিক কাজ করছে।`,
-                icon: Users,
-                color: 'text-blue-600',
-                bg: 'bg-blue-50 dark:bg-blue-900/30',
-                border: 'border-blue-200 dark:border-blue-800'
-            });
-        }
-     });
-
-     if (isPresentToday) {
+     
+     // 1. Attendance Prompt (Highest Priority if not present)
+     if (!isPresentToday && !hasPendingRequest) {
+        items.push({
+           id: 'mark-attendance',
+           type: 'action',
+           title: 'হাজিরা নিশ্চিত করুন',
+           desc: 'আপনি কি আজ সাইটে পৌঁছেছেন? এখনই হাজিরা দিন।',
+           icon: UserCheck,
+           color: 'text-emerald-600 dark:text-emerald-400',
+           bg: 'bg-emerald-50 dark:bg-emerald-900/30',
+           border: 'border-emerald-200 dark:border-emerald-800'
+        });
+     } else if (isPresentToday) {
         items.push({
            id: 'status-present',
            type: 'status',
            title: 'উপস্থিত',
            desc: `আপনি আজ ${currentProjectName || 'সাইটে'} কাজ করছেন।`,
            icon: CheckCircle,
-           color: 'text-green-600',
+           color: 'text-green-600 dark:text-green-400',
            bg: 'bg-green-50 dark:bg-green-900/30',
            border: 'border-green-200 dark:border-green-800'
+        });
+     }
+
+     // 2. Earnings This Month
+     const currentMonth = new Date().getMonth();
+     const thisMonthEarned = myAttendance
+        .filter(a => new Date(a.date).getMonth() === currentMonth)
+        .reduce((sum, a) => sum + a.amount, 0);
+     
+     if (thisMonthEarned > 0) {
+         items.push({
+             id: 'monthly-income',
+             type: 'income',
+             title: 'চলতি মাসের আয়',
+             desc: `এই মাসে আপনার মোট আয়: ৳${thisMonthEarned.toLocaleString()}`,
+             icon: TrendingUp,
+             color: 'text-blue-600 dark:text-blue-400',
+             bg: 'bg-blue-50 dark:bg-blue-900/30',
+             border: 'border-blue-200 dark:border-blue-800'
+         });
+     }
+
+     // 3. Public Notices
+     const recentNotices = publicNotices.sort((a,b) => b.created_at.localeCompare(a.created_at)).slice(0, 2);
+     recentNotices.forEach(notice => {
+         items.push({
+             id: `notice-${notice.id}`,
+             type: 'public_notice',
+             title: 'জরুরি নোটিশ',
+             desc: notice.message,
+             icon: Megaphone,
+             color: 'text-rose-600 dark:text-rose-400',
+             bg: 'bg-rose-50 dark:bg-rose-900/30',
+             border: 'border-rose-200 dark:border-rose-800'
+         });
+     });
+
+     // 4. Site Activity (General Info)
+     const activeProjects = projects.filter(p => p.status === 'active');
+     if (activeProjects.length > 0) {
+        const randomProject = activeProjects[Math.floor(Math.random() * activeProjects.length)];
+        items.push({
+            id: 'site-info',
+            type: 'info',
+            title: 'সাইট আপডেট',
+            desc: `${randomProject.project_name} প্রজেক্টে কাজ চলছে।`,
+            icon: Hammer,
+            color: 'text-purple-600 dark:text-purple-400',
+            bg: 'bg-purple-50 dark:bg-purple-900/30',
+            border: 'border-purple-200 dark:border-purple-800'
         });
      }
 
@@ -178,15 +212,15 @@ export const WorkerHome = () => {
            type: 'info',
            title: 'প্রজেক্ট খাতা',
            desc: 'আপনার আজকের দিনটি শুভ হোক!',
-           icon: Activity,
-           color: 'text-slate-600',
-           bg: 'bg-slate-100 dark:bg-slate-800',
-           border: 'border-slate-200 dark:border-slate-700'
+           icon: Sun,
+           color: 'text-orange-600 dark:text-orange-400',
+           bg: 'bg-orange-50 dark:bg-orange-900/30',
+           border: 'border-orange-200 dark:border-orange-800'
         });
      }
 
      return items;
-  }, [projects, attendance, publicNotices, today, isPresentToday, currentProjectName]);
+  }, [projects, attendance, publicNotices, today, isPresentToday, currentProjectName, hasPendingRequest, myAttendance]);
 
   useEffect(() => {
     if (feedItems.length <= 1 || isPaused) return;
@@ -321,12 +355,21 @@ export const WorkerHome = () => {
             </div>
          </div>
 
+         {/* SMART FEED SECTION */}
+         <div className="mb-2 flex items-center gap-1.5 opacity-80">
+            <Sparkles size={12} className="text-emerald-500" />
+            <h3 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">স্মার্ট ফিড</h3>
+         </div>
+
          <div 
-            className={`w-full relative overflow-hidden rounded-xl border ${currentItem.border} ${currentItem.bg} transition-all duration-500`}
+            className={`w-full relative overflow-hidden rounded-xl border ${currentItem.border} ${currentItem.bg} transition-all duration-500 cursor-pointer active:scale-[0.99]`}
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
             onTouchStart={() => setIsPaused(true)}
             onTouchEnd={() => setIsPaused(false)}
+            onClick={() => {
+                if (currentItem.id === 'mark-attendance') setActiveModal('attendance');
+            }}
          >
             {feedItems.length > 1 && (
                <div className="absolute top-0 left-0 w-full h-0.5 bg-black/5 dark:bg-white/5">
@@ -375,7 +418,7 @@ export const WorkerHome = () => {
                             <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
                                 <Wallet size={10} /> {t('current_due')}
                             </p>
-                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</p>
                         </div>
                         <div className="bg-white/20 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-inner">
                             <ShieldCheck size={20} className="text-white" />
@@ -443,7 +486,7 @@ export const WorkerHome = () => {
                 <div>
                     <div className="flex justify-between items-center mb-3 px-1">
                         <h3 className="font-bold text-slate-800 dark:text-slate-200 text-xs uppercase tracking-wider flex items-center gap-2">
-                        <div className="w-1 h-3 bg-blue-500 rounded-full"></div> সাম্প্রতিক কাজ
+                        <div className="w-1 h-3 bg-blue-500 rounded-full"></div> সাম্প্রতিক কার্যক্রম
                         </h3>
                         <button 
                         onClick={() => navigate('/history')}
@@ -483,7 +526,7 @@ export const WorkerHome = () => {
          )}
       </div>
 
-      {/* --- MODALS --- */}
+      {/* ... MODALS ... */}
       {/* Attendance Modal */}
       {activeModal === 'attendance' && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
@@ -575,6 +618,7 @@ export const WorkerHome = () => {
          </div>
       )}
 
+      {/* Advance Modal - Same logic */}
       {activeModal === 'advance' && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>

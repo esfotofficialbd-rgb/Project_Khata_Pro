@@ -2,7 +2,7 @@
 import React from 'react';
 import { useData } from '../context/DataContext';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, PieChart, TrendingUp, TrendingDown, FileBarChart, Download, Wallet } from 'lucide-react';
+import { ArrowLeft, PieChart, TrendingUp, TrendingDown, FileBarChart, Download, Wallet, Printer, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export const Reports = () => {
@@ -32,6 +32,88 @@ export const Reports = () => {
   }).slice(0, 5);
 
   const colors = ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#ec4899'];
+
+  // Invoice Logic
+  const completedProjects = projects.filter(p => p.status === 'completed').sort((a,b) => b.id.localeCompare(a.id));
+  const lastCompletedProject = completedProjects[0];
+
+  const generateInvoice = () => {
+     if (!lastCompletedProject) return;
+     
+     const pLabor = attendance.filter(a => a.project_id === lastCompletedProject.id).reduce((sum, a) => sum + a.amount, 0);
+     const pMat = transactions.filter(t => t.project_id === lastCompletedProject.id && t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+     const total = pLabor + pMat;
+
+     const printWindow = window.open('', '_blank');
+     if (printWindow) {
+        printWindow.document.write(`
+           <!DOCTYPE html>
+           <html>
+             <head>
+               <title>Invoice - ${lastCompletedProject.project_name}</title>
+               <script src="https://cdn.tailwindcss.com"></script>
+               <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+               <style>body { font-family: 'Hind Siliguri', sans-serif; }</style>
+             </head>
+             <body class="bg-gray-100 p-8">
+                <div class="max-w-2xl mx-auto bg-white p-10 rounded-xl shadow-lg print:shadow-none">
+                   <div class="flex justify-between items-start mb-8 border-b pb-6">
+                      <div>
+                         <h1 class="text-4xl font-bold text-slate-800">INVOICE</h1>
+                         <p class="text-slate-500 font-mono mt-1">#${lastCompletedProject.id.slice(-6).toUpperCase()}</p>
+                      </div>
+                      <div class="text-right">
+                         <h2 class="text-xl font-bold text-blue-600">Project Khata</h2>
+                         <p class="text-sm text-slate-500">Construction Management</p>
+                         <p class="text-sm text-slate-500 mt-1">${new Date().toLocaleDateString('bn-BD', {dateStyle:'long'})}</p>
+                      </div>
+                   </div>
+
+                   <div class="mb-8">
+                      <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Bill To</h3>
+                      <h2 class="text-2xl font-bold text-slate-800">${lastCompletedProject.client_name || 'Client Name'}</h2>
+                      <p class="text-slate-600 font-bold">${lastCompletedProject.project_name}</p>
+                      <p class="text-slate-500 text-sm">${lastCompletedProject.location}</p>
+                      ${lastCompletedProject.client_phone ? `<p class="text-slate-500 text-sm">Phone: ${lastCompletedProject.client_phone}</p>` : ''}
+                   </div>
+
+                   <table class="w-full mb-8">
+                      <thead>
+                         <tr class="bg-slate-50 text-slate-600 text-sm uppercase">
+                            <th class="py-3 px-4 text-left rounded-l-lg">Description</th>
+                            <th class="py-3 px-4 text-right rounded-r-lg">Amount</th>
+                         </tr>
+                      </thead>
+                      <tbody class="text-slate-700">
+                         <tr class="border-b border-slate-50">
+                            <td class="py-4 px-4 font-bold">Labor Costs (Total Attendance)</td>
+                            <td class="py-4 px-4 text-right">৳ ${pLabor.toLocaleString()}</td>
+                         </tr>
+                         <tr class="border-b border-slate-50">
+                            <td class="py-4 px-4 font-bold">Material & Other Expenses</td>
+                            <td class="py-4 px-4 text-right">৳ ${pMat.toLocaleString()}</td>
+                         </tr>
+                      </tbody>
+                      <tfoot>
+                         <tr class="text-xl font-bold text-slate-800">
+                            <td class="pt-6 px-4 text-right">Total Due</td>
+                            <td class="pt-6 px-4 text-right text-blue-600">৳ ${total.toLocaleString()}</td>
+                         </tr>
+                      </tfoot>
+                   </table>
+
+                   <div class="border-t pt-8 text-center">
+                      <p class="text-slate-400 text-xs">Thank you for your business!</p>
+                      <p class="text-slate-300 text-[10px] mt-2">Generated by Project Khata App</p>
+                   </div>
+                </div>
+                <script>window.print();</script>
+             </body>
+           </html>
+        `);
+        printWindow.document.close();
+     }
+  };
 
   // CSV Download Logic
   const downloadReport = () => {
@@ -74,6 +156,27 @@ export const Reports = () => {
       </div>
 
       <div className="p-4 space-y-4">
+         
+         {/* Invoice Generator Card */}
+         {lastCompletedProject && (
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden flex items-center justify-between">
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+                <div className="relative z-10">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1 mb-1">
+                        <CheckCircle size={10} /> Completed Project
+                    </p>
+                    <h3 className="font-bold text-lg">{lastCompletedProject.project_name}</h3>
+                    <p className="text-xs text-indigo-100">Invoice ready for generation</p>
+                </div>
+                <button 
+                    onClick={generateInvoice}
+                    className="relative z-10 bg-white text-indigo-600 px-4 py-2.5 rounded-xl font-bold text-xs shadow-md hover:bg-indigo-50 transition-colors flex items-center gap-2"
+                >
+                    <Printer size={16} /> Print
+                </button>
+            </div>
+         )}
+
          {/* Summary Cards */}
          <div className="grid grid-cols-2 gap-3">
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 relative overflow-hidden group">
