@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Profile, Project, Attendance, Transaction, DailyStats, Notification, WorkReport, MaterialLog, PublicNotice, UserLocation } from '../types';
 import { TRANSLATIONS } from '../constants';
@@ -32,14 +33,16 @@ interface DataContextType {
   realtimeStatus: RealtimeStatus;
   t: (key: keyof typeof TRANSLATIONS.bn) => string;
   markAttendance: (workerId: string, status: 'P' | 'H' | 'A', projectId: string, date: string) => Promise<void>;
+  markRemainingAbsent: (date: string) => Promise<void>;
   submitAttendanceRequest: (workerId: string, projectId: string, date: string) => Promise<void>;
   submitAdvanceRequest: (workerId: string, amount: number) => Promise<void>;
+  requestProfileUpdate: (workerId: string, updatedData: Partial<Profile>) => Promise<void>;
   addWorkReport: (report: WorkReport) => Promise<void>;
   addMaterialLog: (log: MaterialLog) => Promise<void>;
   addPublicNotice: (message: string) => Promise<void>;
   addOvertime: (workerId: string, hours: number, date: string) => Promise<void>;
-  addProject: (project: Project) => Promise<void>;
-  requestProject: (project: Project, supervisorName: string) => Promise<void>;
+  addProject: (project: Project) => Promise<boolean>;
+  requestProject: (project: Project, supervisorName: string) => Promise<boolean>;
   updateProject: (project: Project) => Promise<void>;
   getWorkerBalance: (workerId: string) => number;
   getDailyStats: (date: string) => DailyStats;
@@ -49,7 +52,7 @@ interface DataContextType {
   updateUser: (updatedUser: Profile) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   updateAppSettings: (settings: AppSettings) => void;
-  sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment' | 'project_request' | 'attendance_request' | 'advance_request' | 'work_report', metadata?: any) => Promise<void>;
+  sendNotification: (userId: string, message: string, type: 'info' | 'alert' | 'success' | 'payment' | 'project_request' | 'attendance_request' | 'advance_request' | 'work_report' | 'profile_update_request', metadata?: any) => Promise<void>;
   markNotificationAsRead: (notificationId: string) => Promise<void>;
   getUnreadCount: (userId: string) => number;
   addTransaction: (transaction: Transaction) => Promise<void>;
@@ -213,11 +216,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'user_locations' }, (payload) => {
-              // Enhanced Realtime Location Update
               const newLoc = payload.new as UserLocation;
               if (newLoc) {
                   setActiveLocations(prev => {
-                      // Update logic: Remove old, add new if active
                       const filtered = prev.filter(l => l.user_id !== newLoc.user_id);
                       if (newLoc.is_active) {
                           return [...filtered, newLoc];
@@ -284,13 +285,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!checkOnline()) return { success: false };
     try {
       const cleanPhone = newUser.phone.replace(/\D/g, ''); 
-      
-      // Feature 2: Strict 11 Digit Validation
       if (!/^01\d{9}$/.test(cleanPhone)) {
           throw new Error("সঠিক মোবাইল নাম্বার দিন (১১ ডিজিট, 01 দিয়ে শুরু)");
       }
-
-      // Feature 3: Check Duplicate Data
       const existingUser = users.find(u => u.phone === cleanPhone);
       if (existingUser) {
           throw new Error("এই মোবাইল নাম্বারটি ইতিমধ্যে ব্যবহার করা হয়েছে।");
@@ -339,11 +336,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
            avatar_url: newUser.avatar_url,
            company_name: newUser.company_name,
            email: email,
-           created_at: new Date().toISOString() // Ensure created_at is captured
+           created_at: new Date().toISOString()
         };
         
         const { error: dbError } = await tempSupabase.from('profiles').upsert(profileData);
-        
         if (dbError) throw dbError;
 
         setUsers(prevUsers => {
@@ -355,13 +351,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const currentCached = loadFromCache<Profile[]>(CACHE_KEYS.USERS, []);
         localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify([...currentCached, profileData]));
 
-        toast.success(
-            'সফলভাবে যুক্ত হয়েছে!', 
-            `মোবাইল: ${cleanPhone}\nপাসওয়ার্ড: ${password}`
-        );
+        toast.success('সফলভাবে যুক্ত হয়েছে!', `মোবাইল: ${cleanPhone}\nপাসওয়ার্ড: ${password}`);
         return { success: true, password: password, phone: cleanPhone };
       }
-      
     } catch (error: any) {
       console.error(error);
       let msg = error.message;
@@ -382,28 +374,51 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
   };
 
-  // Feature 1: Delete User
+  const requestProfileUpdate = async (workerId: string, updatedData: Partial<Profile>) => {
+    if (!checkOnline()) return;
+    const worker = users.find(u => u.id === workerId);
+    if (!worker) return;
+
+    const contractor = users.find(u => u.role === 'contractor');
+    
+    if (contractor) {
+       await sendNotification(
+          contractor.id,
+          `${worker.full_name} প্রোফাইল আপডেটের অনুরোধ করেছেন।`,
+          'profile_update_request',
+          { workerId, updatedData }
+       );
+       toast.success('আপডেট অনুরোধ পাঠানো হয়েছে');
+    } else {
+        toast.error('ঠিকাদার খুঁজে পাওয়া যায়নি');
+    }
+  };
+
   const deleteUser = async (userId: string) => {
       if (!checkOnline()) return;
-      
       const { error } = await supabase.from('profiles').delete().eq('id', userId);
-      
       if (error) {
           toast.error('ডিলিট ব্যর্থ হয়েছে', error.message);
           return;
       }
-      
       setUsers(prev => prev.filter(u => u.id !== userId));
-      // Remove from cache
       const currentCached = loadFromCache<Profile[]>(CACHE_KEYS.USERS, []);
       localStorage.setItem(CACHE_KEYS.USERS, JSON.stringify(currentCached.filter(u => u.id !== userId)));
-      
       toast.success('প্রোফাইল সফলভাবে ডিলিট করা হয়েছে');
   };
 
-  const addProject = async (project: Project) => {
-    if (!checkOnline()) return;
-    
+  const addProject = async (project: Project): Promise<boolean> => {
+    if (!checkOnline()) return false;
+
+    // Check duplicate project name (Case Insensitive)
+    const normalizedName = project.project_name.trim().toLowerCase();
+    const isDuplicate = projects.some(p => p.project_name.trim().toLowerCase() === normalizedName);
+
+    if (isDuplicate) {
+        toast.error('ডুপ্লিকেট প্রজেক্ট', 'এই নামের প্রজেক্ট ইতিমধ্যে তালিকায় আছে।');
+        return false;
+    }
+
     const sanitizedProject = {
         ...project,
         budget_amount: isNaN(Number(project.budget_amount)) ? 0 : Number(project.budget_amount),
@@ -412,28 +427,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mistri_rate: project.mistri_rate ? Number(project.mistri_rate) : null,
         helper_rate: project.helper_rate ? Number(project.helper_rate) : null,
         current_expense: 0,
-        created_at: new Date().toISOString() // Track creation for Smart Feed
+        created_at: new Date().toISOString()
     };
 
     const { error } = await supabase.from('projects').insert([sanitizedProject]);
-    
     if (error) {
        console.error("Project Insert Error:", error);
        toast.error('ব্যর্থ', 'প্রজেক্ট তৈরি করা যায়নি: ' + (error.message || error.details || 'Unknown Error'));
-       return;
+       return false;
     }
     toast.success('নতুন প্রজেক্ট তৈরি হয়েছে');
     setProjects(prev => [...prev, sanitizedProject]);
+    return true;
   };
   
-  const requestProject = async (project: Project, supervisorName: string) => {
-     if (!checkOnline()) return;
+  const requestProject = async (project: Project, supervisorName: string): Promise<boolean> => {
+     if (!checkOnline()) return false;
+
+     // Check duplicate project name
+     const normalizedName = project.project_name.trim().toLowerCase();
+     if (projects.some(p => p.project_name.trim().toLowerCase() === normalizedName)) {
+        toast.error('ডুপ্লিকেট প্রজেক্ট', 'এই নামের প্রজেক্ট ইতিমধ্যে তালিকায় আছে।');
+        return false;
+     }
+
      const contractor = users.find(u => u.role === 'contractor');
      if(contractor) {
         await sendNotification(contractor.id, `${supervisorName} একটি নতুন প্রজেক্ট (${project.project_name}) তৈরির অনুরোধ করেছেন।`, 'project_request', project);
         toast.info('অনুরোধ পাঠানো হয়েছে');
+        return true;
      } else {
         toast.error('ব্যর্থ', 'ঠিকাদার খুঁজে পাওয়া যায়নি।');
+        return false;
      }
   };
 
@@ -448,14 +473,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProjects(prev => prev.map(p => p.id === project.id ? project : p));
   };
 
+  // --- ATTENDANCE SYSTEM ---
   const markAttendance = async (workerId: string, status: 'P' | 'H' | 'A', projectId: string, date: string) => {
     if (!checkOnline()) return;
     const worker = users.find(u => u.id === workerId);
     if (!worker) return;
 
     let amount = 0;
-    if (status === 'P') amount = worker.daily_rate || 0;
-    if (status === 'H') amount = (worker.daily_rate || 0) / 2;
+    
+    // Logic for Monthly vs Daily Salary
+    if (worker.payment_type === 'monthly' && worker.monthly_salary) {
+       // For monthly workers, we approximate daily earning for balance tracking
+       // Standard 30 days calculation
+       const dailyEq = Math.round(worker.monthly_salary / 30);
+       if (status === 'P') amount = dailyEq;
+       if (status === 'H') amount = Math.round(dailyEq / 2);
+    } else {
+       // Daily rated workers
+       if (status === 'P') amount = worker.daily_rate || 0;
+       if (status === 'H') amount = (worker.daily_rate || 0) / 2;
+    }
+    
     if (status === 'A') amount = 0;
 
     const existing = attendance.find(a => a.worker_id === workerId && a.date === date);
@@ -499,18 +537,68 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Feature: Mark Remaining as Absent
+  const markRemainingAbsent = async (date: string) => {
+      if (!checkOnline()) return;
+      
+      const workers = users.filter(u => u.role === 'worker' || u.role === 'supervisor');
+      const presentIds = attendance.filter(a => a.date === date).map(a => a.worker_id);
+      const absentWorkers = workers.filter(w => !presentIds.includes(w.id));
+
+      if (absentWorkers.length === 0) {
+          toast.info('সব কর্মীর হাজিরা দেওয়া হয়েছে');
+          return;
+      }
+
+      const payload = absentWorkers.map(w => ({
+          worker_id: w.id,
+          date: date,
+          status: 'A',
+          amount: 0,
+          project_id: null
+      }));
+
+      try {
+          const { data, error } = await supabase.from('attendance').insert(payload).select();
+          
+          if (error) throw error;
+          
+          if (data) {
+              setAttendance(prev => [...prev, ...(data as Attendance[])]);
+              toast.success(`${data.length} জন কর্মীকে অনুপস্থিত মার্ক করা হয়েছে`);
+          }
+      } catch (error: any) {
+          console.error("Bulk absent error:", error);
+          toast.error('অটো অ্যাবসেন্ট ব্যর্থ হয়েছে');
+      }
+  };
+
   const addOvertime = async (workerId: string, hours: number, date: string) => {
     if (!checkOnline()) return;
     const worker = users.find(u => u.id === workerId);
     const existing = attendance.find(a => a.worker_id === workerId && a.date === date);
 
     if (worker && existing) {
-       const hourlyRate = (worker.daily_rate || 0) / 8;
+       let hourlyRate = 0;
+       
+       if (worker.payment_type === 'monthly' && worker.monthly_salary) {
+           hourlyRate = (worker.monthly_salary / 30) / 8;
+       } else {
+           hourlyRate = (worker.daily_rate || 0) / 8;
+       }
+
        const otAmount = Math.round(hourlyRate * hours);
        
        let baseAmount = 0;
-       if (existing.status === 'P') baseAmount = worker.daily_rate || 0;
-       if (existing.status === 'H') baseAmount = (worker.daily_rate || 0) / 2;
+       // Recalculate base amount logic (same as markAttendance)
+       if (worker.payment_type === 'monthly' && worker.monthly_salary) {
+           const dailyEq = Math.round(worker.monthly_salary / 30);
+           if (existing.status === 'P') baseAmount = dailyEq;
+           if (existing.status === 'H') baseAmount = Math.round(dailyEq / 2);
+       } else {
+           if (existing.status === 'P') baseAmount = worker.daily_rate || 0;
+           if (existing.status === 'H') baseAmount = (worker.daily_rate || 0) / 2;
+       }
 
        const totalAmount = baseAmount + otAmount;
        const diff = totalAmount - existing.amount;
@@ -735,7 +823,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toast.info('সেটিংস আপডেট হয়েছে');
   };
 
-  // Feature 6: Enhanced Realtime Location Logic
   const updateUserLocation = async (lat: number, lng: number, isActive: boolean) => {
       if (!user) return;
       await supabase.from('user_locations').upsert({
@@ -764,8 +851,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       realtimeStatus,
       t,
       markAttendance,
+      markRemainingAbsent,
       submitAttendanceRequest,
       submitAdvanceRequest,
+      requestProfileUpdate,
       addOvertime,
       addProject,
       requestProject,
@@ -776,7 +865,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       registerUser,
       addUser,
       updateUser,
-      deleteUser, // Added function
+      deleteUser,
       updateAppSettings,
       sendNotification,
       markNotificationAsRead,
