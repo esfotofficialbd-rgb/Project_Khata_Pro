@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, ReactNode, ErrorInfo } from 'react';
+import React, { Component, useState, useCallback, useEffect, ReactNode, ErrorInfo } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/SessionContext';
 import { DataProvider } from './context/DataContext';
@@ -40,7 +40,7 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
