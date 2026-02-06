@@ -282,7 +282,7 @@ export const WorkerDetails = () => {
                    <p className="text-xs font-bold opacity-80 uppercase tracking-widest mb-1 flex items-center gap-1">
                       <Wallet size={12} /> মোট বকেয়া
                    </p>
-                   <h2 className="text-4xl font-extrabold tracking-tight">৳ {worker.balance.toLocaleString()}</p>
+                   <h2 className="text-4xl font-extrabold tracking-tight">৳ {worker.balance.toLocaleString()}</h2>
                 </div>
                 <button 
                    onClick={() => setIsPayModalOpen(true)}
@@ -533,7 +533,7 @@ export const WorkerDetails = () => {
                         onChange={(e) => setPayAmount(e.target.value)}
                         placeholder="0"
                         className={`${inputClass} pl-10 text-xl font-bold`}
-                      />
+                       />
                    </div>
                 </div>
 
