@@ -18,12 +18,15 @@ export const SupervisorDashboard = () => {
   const today = new Date().toISOString().split('T')[0];
   const stats = getDailyStats(today);
 
+  // Reactivity Fix: Use user from 'users' list
+  const currentUser = users.find(u => u.id === user?.id) || user;
+
   const myAttendance = attendance.find(a => a.worker_id === user?.id && a.date === today);
   const myProject = projects.find(p => p.id === (myAttendance ? myAttendance.project_id : user?.assigned_project_id));
 
   const myHistory = attendance.filter(a => a.worker_id === user?.id);
   const myTotalWorkDays = myHistory.filter(a => a.status === 'P' || a.status === 'H').length;
-  const myBalance = user?.balance || 0;
+  const myBalance = currentUser?.balance || 0;
 
   const [time, setTime] = useState(new Date());
   const [greeting, setGreeting] = useState('');
@@ -769,6 +772,7 @@ export const SupervisorDashboard = () => {
                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl group-focus-within:text-purple-500 transition-colors">৳</span>
                        <input 
                          type="number" 
+                         inputMode="decimal"
                          required
                          autoFocus
                          value={txForm.amount}
@@ -865,6 +869,7 @@ export const SupervisorDashboard = () => {
                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl group-focus-within:text-purple-500 transition-colors">৳</span>
                        <input 
                          type="number" 
+                         inputMode="decimal"
                          required
                          value={payForm.amount}
                          onChange={(e) => setPayForm({...payForm, amount: e.target.value})}
@@ -935,6 +940,7 @@ export const SupervisorDashboard = () => {
                         <label className={labelClass}>{t('quantity')}</label>
                         <input 
                           type="number" 
+                          inputMode="decimal"
                           required
                           value={materialForm.quantity}
                           onChange={(e) => setMaterialForm({...materialForm, quantity: e.target.value})}

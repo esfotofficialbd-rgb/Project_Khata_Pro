@@ -296,6 +296,8 @@ export const Projects = () => {
                        <label className={labelClass}>{t('mobile')}</label>
                        <input 
                          name="client_phone"
+                         type="tel"
+                         inputMode="tel"
                          required
                          value={formData.client_phone}
                          onChange={handleInputChange}
@@ -328,6 +330,7 @@ export const Projects = () => {
                             <input 
                               name="mistri_rate"
                               type="number"
+                              inputMode="decimal"
                               value={formData.mistri_rate}
                               onChange={handleInputChange}
                               className={inputClass}
@@ -339,6 +342,7 @@ export const Projects = () => {
                             <input 
                               name="helper_rate"
                               type="number"
+                              inputMode="decimal"
                               value={formData.helper_rate}
                               onChange={handleInputChange}
                               className={inputClass}
@@ -357,6 +361,7 @@ export const Projects = () => {
                          <input 
                            name="budget_amount"
                            type="number"
+                           inputMode="decimal"
                            required
                            value={formData.budget_amount}
                            onChange={handleInputChange}
@@ -375,6 +380,7 @@ export const Projects = () => {
                             <input 
                               name="sqft_rate"
                               type="number"
+                              inputMode="decimal"
                               required
                               value={formData.sqft_rate}
                               onChange={handleInputChange}
@@ -387,6 +393,7 @@ export const Projects = () => {
                             <input 
                               name="total_area"
                               type="number"
+                              inputMode="decimal"
                               required
                               value={formData.total_area}
                               onChange={handleInputChange}

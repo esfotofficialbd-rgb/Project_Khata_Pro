@@ -105,6 +105,9 @@ export const WorkerHome = () => {
 
   if (!user) return null;
 
+  // Reactivity Fix: Use user from 'users' list to get real-time balance updates
+  const currentUser = users.find(u => u.id === user.id) || user;
+
   const contractor = users.find(u => u.role === 'contractor');
   
   const myAttendance = attendance
@@ -122,7 +125,7 @@ export const WorkerHome = () => {
     ? projects.find(p => p.id === todaysRecord.project_id)?.project_name 
     : '';
 
-  const hourlyRate = (user.daily_rate || 0) / 8;
+  const hourlyRate = (currentUser.daily_rate || 0) / 8;
   const calculatedOtAmount = otHours ? Math.round(Number(otHours) * hourlyRate) : 0;
 
   const recentActivities = myAttendance.slice(0, 3);
@@ -243,7 +246,7 @@ export const WorkerHome = () => {
   const handleLeaveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (contractor && leaveData.date && leaveData.reason) {
-      sendNotification(contractor.id, `${user.full_name} ছুটির আবেদন করেছেন।`, 'alert');
+      sendNotification(contractor.id, `${currentUser.full_name} ছুটির আবেদন করেছেন।`, 'alert');
       toast.success('ছুটির আবেদন পাঠানো হয়েছে!');
       setLeaveData({ date: '', reason: 'পারিবারিক কাজ' });
       setActiveModal(null);
@@ -253,7 +256,7 @@ export const WorkerHome = () => {
   };
 
   const handleNoteSave = () => {
-    localStorage.setItem(`worker_note_${user.id}`, myNote);
+    localStorage.setItem(`worker_note_${currentUser.id}`, myNote);
     toast.success('নোট সেভ করা হয়েছে!');
     setActiveModal(null);
   };
@@ -263,8 +266,8 @@ export const WorkerHome = () => {
     if (selectedProjectId) {
       setIsSubmitting(true);
       try {
-        await submitAttendanceRequest(user.id, selectedProjectId, today);
-        localStorage.setItem(`pk_att_req_${user.id}`, today);
+        await submitAttendanceRequest(currentUser.id, selectedProjectId, today);
+        localStorage.setItem(`pk_att_req_${currentUser.id}`, today);
         setHasPendingRequest(true);
       } finally {
         setIsSubmitting(false);
@@ -278,7 +281,7 @@ export const WorkerHome = () => {
     if (isNaN(amount) || amount <= 0) return;
     setIsSubmitting(true);
     try {
-        await submitAdvanceRequest(user.id, amount);
+        await submitAdvanceRequest(currentUser.id, amount);
         setAdvanceAmount('');
         setActiveModal(null);
     } finally {
@@ -341,7 +344,7 @@ export const WorkerHome = () => {
                   <Sun size={10} className="text-orange-400" /> {greeting}
                </p>
                <h1 className="text-2xl font-extrabold text-slate-800 dark:text-white tracking-tight mt-0.5">
-                  {user.skill_type || 'কর্মী'}
+                  {currentUser.skill_type || 'কর্মী'}
                </h1>
             </div>
             
@@ -418,7 +421,7 @@ export const WorkerHome = () => {
                             <p className="text-emerald-100 text-[10px] font-bold uppercase tracking-widest mb-0.5 flex items-center gap-1">
                                 <Wallet size={10} /> {t('current_due')}
                             </p>
-                            <h1 className="text-3xl font-bold tracking-tight">৳ {user.balance.toLocaleString()}</h1>
+                            <h1 className="text-3xl font-bold tracking-tight">৳ {currentUser.balance.toLocaleString()}</h1>
                         </div>
                         <div className="bg-white/20 backdrop-blur-md p-2 rounded-lg border border-white/20 shadow-inner">
                             <ShieldCheck size={20} className="text-white" />
@@ -636,7 +639,7 @@ export const WorkerHome = () => {
                <form onSubmit={handleAdvanceSubmit} className="space-y-6">
                   <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 p-5 rounded-2xl text-center border border-emerald-100 dark:border-emerald-900/30">
                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-widest mb-1">বর্তমান বকেয়া</p>
-                     <p className="text-4xl font-bold text-slate-800 dark:text-white tracking-tight">৳ {user.balance.toLocaleString()}</p>
+                     <p className="text-4xl font-bold text-slate-800 dark:text-white tracking-tight">৳ {currentUser.balance.toLocaleString()}</p>
                   </div>
 
                   <div>
@@ -645,6 +648,7 @@ export const WorkerHome = () => {
                         <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-2xl">৳</span>
                         <input 
                            type="number" 
+                           inputMode="decimal"
                            required
                            autoFocus
                            min="1"
@@ -756,7 +760,7 @@ export const WorkerHome = () => {
                   <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
                      <div className="flex justify-between items-center mb-2">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">আপনার দৈনিক রেট</span>
-                        <span className="font-bold text-slate-800 dark:text-white">৳ {user.daily_rate}</span>
+                        <span className="font-bold text-slate-800 dark:text-white">৳ {currentUser.daily_rate}</span>
                      </div>
                      <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">প্রতি ঘণ্টা (৮ ঘণ্টা ডিউটি)</span>
@@ -769,6 +773,7 @@ export const WorkerHome = () => {
                      <div className="relative">
                         <input 
                            type="number" 
+                           inputMode="decimal"
                            autoFocus
                            min="0"
                            value={otHours}

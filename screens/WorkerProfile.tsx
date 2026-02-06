@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../context/SessionContext';
 import { useData } from '../context/DataContext';
-import { Award, Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Maximize2, Download, ShieldCheck, MapPin, Loader2, ChevronDown } from 'lucide-react';
+import { Phone, QrCode, Edit2, X, Camera, CheckCircle, Briefcase, User, Building2, Calendar, Wallet, CreditCard, Cpu, Download, ShieldCheck, Loader2, ChevronDown } from 'lucide-react';
 import { Profile } from '../types';
 import QRCode from 'react-qr-code';
 import { useToast } from '../context/ToastContext';
@@ -33,6 +33,18 @@ export const WorkerProfile = () => {
 
   const isSupervisor = user.role === 'supervisor';
   const isWorker = user.role === 'worker';
+
+  const theme = isSupervisor ? {
+      lightBg: 'bg-purple-50 dark:bg-purple-900/30',
+      text: 'text-purple-700 dark:text-purple-300',
+      border: 'border-purple-100 dark:border-purple-800',
+      icon: Briefcase
+  } : {
+      lightBg: 'bg-emerald-50 dark:bg-emerald-900/30',
+      text: 'text-emerald-700 dark:text-emerald-300',
+      border: 'border-emerald-100 dark:border-emerald-800',
+      icon: User
+  };
 
   const workerSkills = ['রাজমিস্ত্রি', 'রডমিস্ত্রি', 'হেল্পার', 'সিনিয়র হেল্পার', 'হাব মিস্ত্রী', 'ইলেকট্রিশিয়ান', 'পেইন্টার'];
 
@@ -75,7 +87,7 @@ export const WorkerProfile = () => {
                       const fileName = `avatars/${user.id}-${Date.now()}.jpg`;
                       
                       try {
-                          const { data, error } = await supabase.storage
+                          const { error } = await supabase.storage
                               .from('images')
                               .upload(fileName, blob, {
                                   contentType: 'image/jpeg',
@@ -90,16 +102,18 @@ export const WorkerProfile = () => {
 
                           setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
                           toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
+                          setIsProcessingImage(false);
                       } catch (uploadError) {
                           console.warn("Storage upload failed, fallback to Base64:", uploadError);
                           
                           // Fallback to Base64
                           const base64String = canvas.toDataURL('image/jpeg', 0.7);
                           setFormData(prev => ({ ...prev, avatar_url: base64String }));
-                          toast.success('ছবি সেভ হয়েছে');
-                      } finally {
+                          toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
                           setIsProcessingImage(false);
                       }
+                  } else {
+                      setIsProcessingImage(false);
                   }
               }, 'image/jpeg', 0.7);
           };
@@ -107,8 +121,6 @@ export const WorkerProfile = () => {
       };
       reader.readAsDataURL(file);
     }
-    
-    // Allow re-selecting same file
     if (e.target) e.target.value = '';
   };
 
@@ -151,7 +163,7 @@ export const WorkerProfile = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24 relative overflow-hidden font-sans">
       
-      {/* Cover Photo - Theme Based */}
+      {/* Cover Photo */}
       <div className={`h-52 relative overflow-hidden ${isSupervisor ? 'bg-gradient-to-r from-purple-600 to-indigo-800' : 'bg-gradient-to-r from-emerald-600 to-teal-800'}`}>
          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
          <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -181,12 +193,13 @@ export const WorkerProfile = () => {
                {user.is_verified && <ShieldCheck size={22} className="text-blue-500 fill-blue-50" />}
             </h2>
             
-            <div className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 uppercase tracking-wide border ${isSupervisor ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-100 dark:border-purple-800' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-100 dark:border-emerald-800'}`}>
-               {isSupervisor ? <Briefcase size={12}/> : <User size={12}/>}
-               {isSupervisor ? user.designation : user.skill_type}
+            <div className="flex items-center justify-center gap-2 mt-2 mb-6">
+                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider border ${theme.lightBg} ${theme.text} ${theme.border} flex items-center gap-1.5`}>
+                   <theme.icon size={12}/> {isSupervisor ? user.designation : user.skill_type}
+                </span>
             </div>
 
-            <div className="mt-6 w-full flex items-center justify-center gap-6 text-sm text-slate-500 dark:text-slate-400">
+            <div className="w-full flex items-center justify-center gap-6 text-sm text-slate-500 dark:text-slate-400">
                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-100 dark:border-slate-700">
                   <Building2 size={14}/>
                   <span className="font-bold">{companyName}</span>
@@ -219,7 +232,7 @@ export const WorkerProfile = () => {
          {/* Digital ID Section */}
          <button 
             onClick={() => setShowIdCard(!showIdCard)}
-            className={`w-full mt-6 p-1 rounded-3xl bg-gradient-to-r ${isSupervisor ? 'from-purple-500 via-indigo-500 to-purple-500' : 'from-emerald-500 via-teal-500 to-emerald-500'} p-[2px] active:scale-[0.98] transition-transform shadow-xl group`}
+            className={`w-full mt-6 rounded-3xl bg-gradient-to-r ${isSupervisor ? 'from-purple-500 via-indigo-500 to-purple-500' : 'from-emerald-500 via-teal-500 to-emerald-500'} p-[2px] active:scale-[0.98] transition-transform shadow-xl group`}
          >
             <div className="bg-white dark:bg-slate-900 rounded-[22px] p-5 flex items-center justify-between">
                <div className="flex items-center gap-4">
@@ -242,7 +255,6 @@ export const WorkerProfile = () => {
             <div className="mt-6 animate-scale-up perspective-1000">
                <div className={`relative rounded-3xl overflow-hidden aspect-[1.58/1] shadow-2xl transition-transform transform hover:scale-[1.02] ${isSupervisor ? 'bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900' : 'bg-gradient-to-br from-teal-900 via-emerald-900 to-slate-900'}`}>
                   
-                  {/* Holographic/Shiny Effects */}
                   <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-20 mix-blend-overlay"></div>
                   <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] bg-gradient-to-r from-transparent via-white/10 to-transparent rotate-45 animate-pulse-slow pointer-events-none"></div>
 
@@ -302,7 +314,6 @@ export const WorkerProfile = () => {
          )}
       </div>
 
-      {/* Improved Fullscreen Zoom QR Modal */}
       {zoomQr && (
         <div className="fixed inset-0 z-[80] bg-slate-950/95 flex flex-col items-center justify-center p-6 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setZoomQr(false)}>
            <button 
@@ -321,15 +332,11 @@ export const WorkerProfile = () => {
               <div className="text-center mt-8">
                  <p className="text-white text-2xl font-bold tracking-tight">{user.full_name}</p>
                  <p className="text-slate-400 text-sm font-mono uppercase tracking-widest mt-1">ID: {user.id.slice(0,8)}</p>
-                 <div className="mt-6 inline-flex items-center gap-2 px-6 py-3 bg-white/10 rounded-full text-white/90 text-sm font-bold backdrop-blur-md border border-white/10">
-                    <QrCode size={18} /> Scan for Attendance
-                 </div>
               </div>
            </div>
         </div>
       )}
 
-      {/* Edit Modal */}
       {isEditing && (
          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setIsEditing(false)}></div>

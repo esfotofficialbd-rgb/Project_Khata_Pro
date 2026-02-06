@@ -310,6 +310,7 @@ export const WorkersList = () => {
                   <input 
                     name="phone"
                     type="tel"
+                    inputMode="tel"
                     required
                     value={formData.phone}
                     onChange={handleInputChange}
@@ -346,6 +347,7 @@ export const WorkersList = () => {
                       <input 
                         name="rate"
                         type="number"
+                        inputMode="decimal"
                         required
                         value={formData.rate}
                         onChange={handleInputChange}
@@ -393,6 +395,7 @@ export const WorkersList = () => {
                         <input 
                           name="rate"
                           type="number"
+                          inputMode="decimal"
                           required
                           value={formData.rate}
                           onChange={handleInputChange}

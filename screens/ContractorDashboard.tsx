@@ -645,6 +645,7 @@ export const ContractorDashboard = () => {
                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-2xl">৳</span>
                        <input 
                          type="number" 
+                         inputMode="decimal"
                          required
                          autoFocus
                          value={activeModal === 'payment' ? payForm.amount : txForm.amount}

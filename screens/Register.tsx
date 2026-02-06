@@ -18,9 +18,10 @@ interface InputFieldProps {
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   showPassword?: boolean;
   onTogglePassword?: () => void;
+  inputMode?: 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
 }
 
-const InputField = ({ label, icon: Icon, name, type = "text", placeholder, required = true, value, onChange, showPassword, onTogglePassword }: InputFieldProps) => (
+const InputField = ({ label, icon: Icon, name, type = "text", placeholder, required = true, value, onChange, showPassword, onTogglePassword, inputMode }: InputFieldProps) => (
     <div className="space-y-1.5">
         <label className="text-xs font-bold text-slate-500 uppercase ml-1 block tracking-wider">{label}</label>
         <div className="relative group">
@@ -30,6 +31,7 @@ const InputField = ({ label, icon: Icon, name, type = "text", placeholder, requi
             <input
                 name={name}
                 type={type}
+                inputMode={inputMode}
                 required={required}
                 value={value}
                 onChange={onChange}
@@ -224,6 +226,7 @@ export const Register = () => {
                   icon={Phone} 
                   name="phone" 
                   type="tel" 
+                  inputMode="numeric"
                   placeholder="017xxxxxxxx" 
                   value={formData.phone}
                   onChange={handleChange}
@@ -233,6 +236,7 @@ export const Register = () => {
                   icon={Mail} 
                   name="email" 
                   type="email" 
+                  inputMode="email"
                   placeholder="example@email.com" 
                   value={formData.email}
                   onChange={handleChange}

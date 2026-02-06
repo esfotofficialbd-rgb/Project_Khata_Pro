@@ -295,7 +295,8 @@ export const Login = () => {
                         {role === 'contractor' ? <Mail size={20}/> : <Phone size={20}/>}
                      </div>
                      <input 
-                       type={role === 'contractor' ? "email" : "text"}
+                       type={role === 'contractor' ? "email" : "tel"}
+                       inputMode={role === 'contractor' ? "email" : "numeric"}
                        value={identifier}
                        onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-base font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-sm"
