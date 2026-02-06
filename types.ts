@@ -90,7 +90,7 @@ export interface DailyStats {
 export interface Notification {
   id: string;
   user_id: string; // Receiver
-  type: 'info' | 'alert' | 'success' | 'payment' | 'project_request' | 'attendance_request' | 'advance_request' | 'work_report' | 'material_log';
+  type: 'info' | 'alert' | 'success' | 'payment' | 'project_request' | 'attendance_request' | 'advance_request' | 'work_report' | 'material_log' | 'profile_update_request';
   message: string;
   date: string;
   is_read: boolean;
