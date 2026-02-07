@@ -3,9 +3,98 @@ import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft } from 'lucide-react';
+import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft, Hammer, ChevronDown, Check, Search } from 'lucide-react';
 import { Transaction, WorkReport, MaterialLog } from '../types';
 import { supabase } from '../supabaseClient';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
+
+// --- CUSTOM SELECTOR COMPONENT ---
+interface SelectorProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  options: { value: string; label: string; sub?: string }[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  icon?: React.ElementType;
+}
+
+const SelectorSheet = ({ isOpen, onClose, title, options, selectedValue, onSelect, icon: Icon }: SelectorProps) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  if (!isOpen) return null;
+
+  const filteredOptions = options.filter(opt => 
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (opt.sub && opt.sub.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+        <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] relative z-10 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800 max-h-[85vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="p-6 pb-2 shrink-0">
+                <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        {Icon && <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600"><Icon size={20}/></div>}
+                        {title}
+                    </h3>
+                    <button onClick={onClose} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-2">
+                    <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder="খুঁজুন..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white"
+                        autoFocus
+                    />
+                </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto px-4 pb-6 custom-scrollbar space-y-2">
+                {filteredOptions.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-sm font-medium">কোন তথ্য পাওয়া যায়নি</div>
+                ) : (
+                    filteredOptions.map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => { onSelect(opt.value); onClose(); setSearchTerm(''); }}
+                            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all active:scale-[0.98] ${
+                                selectedValue === opt.value 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 ring-1 ring-blue-500/20' 
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            <div className="text-left">
+                                <p className={`font-bold text-sm ${selectedValue === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-white'}`}>
+                                    {opt.label}
+                                </p>
+                                {opt.sub && (
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">{opt.sub}</p>
+                                )}
+                            </div>
+                            {selectedValue === opt.value && (
+                                <div className="bg-blue-500 text-white p-1 rounded-full">
+                                    <Check size={14} strokeWidth={3} />
+                                </div>
+                            )}
+                        </button>
+                    ))
+                )}
+            </div>
+        </div>
+    </div>
+  );
+};
 
 export const SupervisorDashboard = () => {
   const { user } = useAuth();
@@ -52,6 +141,10 @@ export const SupervisorDashboard = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  
+  // Custom Selector States
+  const [showWorkerSelector, setShowWorkerSelector] = useState(false);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
   
   // Automatic Tracking Ref
   const watchIdRef = useRef<number | null>(null);
@@ -375,7 +468,8 @@ export const SupervisorDashboard = () => {
       amount: Number(txForm.amount),
       description: txForm.description || 'Site Expense',
       project_id: txForm.projectId || undefined,
-      date: today
+      date: today,
+      created_at: new Date().toISOString()
     };
     await addTransaction(newTx);
     setActiveModal(null);
@@ -406,7 +500,8 @@ export const SupervisorDashboard = () => {
             submitted_by: user!.id,
             date: today,
             description: reportForm.description,
-            image_url: reportForm.image_url || undefined
+            image_url: reportForm.image_url || undefined,
+            created_at: new Date().toISOString()
         };
         
         await addWorkReport(newReport);
@@ -432,7 +527,8 @@ export const SupervisorDashboard = () => {
           quantity: Number(materialForm.quantity),
           unit: materialForm.unit,
           supplier_name: materialForm.supplier,
-          challan_photo: materialForm.challan_photo
+          challan_photo: materialForm.challan_photo,
+          created_at: new Date().toISOString()
        };
        await addMaterialLog(newLog);
        setActiveModal(null);
@@ -752,428 +848,145 @@ export const SupervisorDashboard = () => {
                     </div>
                 </div>
             </>
-        )}
+         )}
       </div>
-      
-      {activeModal === 'expense' && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
-           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-8 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800">
+
+      {/* Bottom Sheet Modals */}
+      {(activeModal === 'income' || activeModal === 'expense' || activeModal === 'payment') && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+           <div className="absolute inset-0 bg-slate-800/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
+           
+           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-6 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800">
+              {/* Drag Handle for Mobile */}
               <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
-              <div className="flex justify-between items-center mb-8">
+
+              <div className="flex justify-between items-center mb-6">
                  <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <div className="bg-purple-100 p-2 rounded-full"><ArrowUpRight className="text-purple-600" size={20}/></div>
-                    {t('expense_title')}
+                    {activeModal === 'income' ? <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-emerald-600"><ArrowDownLeft size={20}/></div> : 
+                     activeModal === 'expense' ? <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-xl text-rose-600"><ArrowUpRight size={20}/></div> : 
+                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600"><Wallet size={20}/></div>}
+                    <span className="text-lg">{activeModal === 'income' ? t('income_title') : activeModal === 'expense' ? t('expense_title') : t('payment_title')}</span>
                  </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
               </div>
 
-              <form onSubmit={handleTxSubmit} className="space-y-4">
-                 <div>
-                    <label className={labelClass}>{t('amount')}</label>
+              <form onSubmit={activeModal === 'payment' ? handlePaySubmit : handleTxSubmit} className="space-y-5">
+                 {activeModal === 'payment' && (
+                    <div className="space-y-2">
+                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('select_worker')}</label>
+                       
+                       {/* Custom Worker Selector Trigger */}
+                       <button
+                          type="button"
+                          onClick={() => setShowWorkerSelector(true)}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-left flex justify-between items-center group transition-all active:scale-[0.98]"
+                       >
+                          <span className={`text-sm font-bold ${payForm.workerId ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
+                             {payForm.workerId ? workers.find(w => w.id === payForm.workerId)?.full_name : t('click_list')}
+                          </span>
+                          <ChevronDown size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                       </button>
+
+                       {payForm.workerId && (
+                          <div className="flex justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-medium border border-slate-100 dark:border-slate-700 animate-fade-in-up">
+                             <span className="text-slate-500 dark:text-slate-400">বর্তমান বকেয়া</span>
+                             <span className={`font-bold ${selectedWorkerBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {selectedWorkerBalance}</span>
+                          </div>
+                       )}
+                    </div>
+                 )}
+
+                 <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('amount')}</label>
                     <div className="relative group">
-                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl group-focus-within:text-purple-500 transition-colors">৳</span>
+                       <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-2xl">৳</span>
                        <input 
                          type="number" 
                          inputMode="decimal"
                          required
                          autoFocus
-                         value={txForm.amount}
-                         onChange={(e) => setTxForm({...txForm, amount: e.target.value})}
+                         value={activeModal === 'payment' ? payForm.amount : txForm.amount}
+                         onChange={(e) => activeModal === 'payment' ? setPayForm({...payForm, amount: e.target.value}) : setTxForm({...txForm, amount: e.target.value})}
                          placeholder="0"
-                         className={`${inputClass} pl-10 text-xl font-bold`}
+                         className={`${inputClass} pl-14 pr-6 text-3xl font-bold`}
                        />
                     </div>
                  </div>
 
-                 <div>
-                    <label className={labelClass}>{t('description')}</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={txForm.description}
-                      onChange={(e) => setTxForm({...txForm, description: e.target.value})}
-                      placeholder={t('expense_placeholder')}
-                      className={inputClass}
-                    />
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>{t('project_optional')}</label>
-                    <div className="relative">
-                       <select 
-                          value={txForm.projectId}
-                          onChange={(e) => setTxForm({...txForm, projectId: e.target.value})}
-                          className={`${inputClass} appearance-none`}
-                       >
-                          <option value="">{t('general_project')}</option>
-                          {projects.filter(p => p.status === 'active').map(p => (
-                             <option key={p.id} value={p.id}>{p.project_name}</option>
-                          ))}
-                       </select>
-                       <MapPin size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                 </div>
-
-                 <button 
-                   type="submit" 
-                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
-                 >
-                    <CheckCircle size={20} />
-                    {t('confirm_expense')}
-                 </button>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {/* Other modals remain the same... */}
-      {activeModal === 'payment' && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
-           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-8 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800">
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
-              <div className="flex justify-between items-center mb-8">
-                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <div className="bg-purple-100 p-2 rounded-full"><Wallet className="text-purple-600" size={20}/></div>
-                    {t('payment_title')}
-                 </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
-              </div>
-
-              <form onSubmit={handlePaySubmit} className="space-y-4">
-                 <div>
-                    <label className={labelClass}>{t('select_worker')}</label>
-                    <div className="relative">
-                       <select 
-                          value={payForm.workerId}
-                          onChange={(e) => setPayForm({...payForm, workerId: e.target.value})}
-                          className={`${inputClass} appearance-none`}
-                          required
-                       >
-                          <option value="">{t('click_list')}</option>
-                          {workers.map(w => (
-                             <option key={w.id} value={w.id}>{w.full_name}</option>
-                          ))}
-                       </select>
-                       <Users size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                    {payForm.workerId && (
-                       <div className="mt-2 flex justify-between px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs border border-slate-100 dark:border-slate-700">
-                          <span className="text-slate-500">বর্তমান বকেয়া</span>
-                          <span className={`font-bold ${selectedWorkerBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {selectedWorkerBalance}</span>
-                       </div>
-                    )}
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>{t('amount')}</label>
-                    <div className="relative group">
-                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl group-focus-within:text-purple-500 transition-colors">৳</span>
-                       <input 
-                         type="number" 
-                         inputMode="decimal"
-                         required
-                         value={payForm.amount}
-                         onChange={(e) => setPayForm({...payForm, amount: e.target.value})}
-                         placeholder="0"
-                         className={`${inputClass} pl-10 text-xl font-bold`}
-                       />
-                    </div>
-                 </div>
-
-                 <button 
-                   type="submit" 
-                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2"
-                 >
-                    <CheckCircle size={20} />
-                    {t('confirm_payment')}
-                 </button>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {activeModal === 'material' && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
-           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-8 shadow-2xl animate-scale-up border-t border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <div className="bg-purple-100 p-2 rounded-full"><PackageCheck className="text-purple-600" size={20}/></div>
-                    {t('material_entry_title')}
-                 </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
-              </div>
-
-              <form onSubmit={handleMaterialSubmit} className="space-y-4">
-                 <div>
-                    <label className={labelClass}>প্রজেক্ট</label>
-                    <div className="relative">
-                        <select 
-                            value={materialForm.projectId}
-                            onChange={(e) => setMaterialForm({...materialForm, projectId: e.target.value})}
-                            className={`${inputClass} appearance-none`}
-                            required
-                        >
-                            <option value="">প্রজেক্ট সিলেক্ট করুন</option>
-                            {projects.filter(p => p.status === 'active').map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name}</option>
-                            ))}
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={16}/>
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>{t('item_name')}</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={materialForm.item_name}
-                      onChange={(e) => setMaterialForm({...materialForm, item_name: e.target.value})}
-                      placeholder="যেমন: সিমেন্ট"
-                      className={inputClass}
-                    />
-                 </div>
-
-                 <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className={labelClass}>{t('quantity')}</label>
-                        <input 
-                          type="number" 
-                          inputMode="decimal"
-                          required
-                          value={materialForm.quantity}
-                          onChange={(e) => setMaterialForm({...materialForm, quantity: e.target.value})}
-                          placeholder="0"
-                          className={inputClass}
-                        />
-                    </div>
-                    <div>
-                        <label className={labelClass}>{t('unit')}</label>
+                 {activeModal !== 'payment' && (
+                   <>
+                     <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('description')}</label>
                         <input 
                           type="text" 
                           required
-                          value={materialForm.unit}
-                          onChange={(e) => setMaterialForm({...materialForm, unit: e.target.value})}
-                          placeholder="ব্যাগ/ট্রাক"
+                          value={txForm.description}
+                          onChange={(e) => setTxForm({...txForm, description: e.target.value})}
+                          placeholder={activeModal === 'income' ? t('source_placeholder') : t('expense_placeholder')}
                           className={inputClass}
                         />
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>{t('supplier')}</label>
-                    <div className="relative">
-                        <input 
-                          type="text" 
-                          value={materialForm.supplier}
-                          onChange={(e) => setMaterialForm({...materialForm, supplier: e.target.value})}
-                          placeholder="দোকানের নাম"
-                          className={`${inputClass} pl-10`}
-                        />
-                        <Truck size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                    </div>
-                 </div>
-
-                 {/* Image Upload */}
-                 <div>
-                    <label className={labelClass}>{t('challan_photo')}</label>
-                    <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full h-32 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors relative overflow-hidden group"
-                    >
-                        {materialForm.challan_photo ? (
-                            <img src={materialForm.challan_photo} alt="Challan" className="w-full h-full object-cover transition-opacity" style={{ opacity: isProcessingImage ? 0.5 : 1 }} />
-                        ) : (
-                            <>
-                                <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-full mb-2 group-hover:scale-110 transition-transform">
-                                    <Camera size={24} className="text-slate-400" />
-                                </div>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">ছবি তুলুন</p>
-                            </>
-                        )}
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('project_optional')}</label>
                         
-                        {isProcessingImage && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                              <Loader2 className="animate-spin text-purple-600" size={32} />
-                          </div>
-                        )}
-
-                        <input 
-                            type="file" 
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept="image/png, image/jpeg, image/jpg, image/webp"
-                            capture="environment"
-                            onChange={(e) => handleImageUpload(e, 'material')}
-                        />
-                    </div>
-                 </div>
-
-                 <button 
-                   type="submit" 
-                   disabled={isSubmitting || isProcessingImage}
-                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                 >
-                    {isProcessingImage ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
-                    {t('submit_entry')}
-                 </button>
-              </form>
-           </div>
-        </div>
-      )}
-
-      {activeModal === 'report' && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
-           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-8 shadow-2xl animate-scale-up border-t border-slate-100 dark:border-slate-800 max-h-[90vh] overflow-y-auto">
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <div className="bg-purple-100 p-2 rounded-full"><FileText className="text-purple-600" size={20}/></div>
-                    {t('submit_report')}
-                 </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
-              </div>
-
-              <form onSubmit={handleReportSubmit} className="space-y-4">
-                 <div>
-                    <label className={labelClass}>প্রজেক্ট</label>
-                    <div className="relative">
-                        <select 
-                            value={reportForm.projectId}
-                            onChange={(e) => setReportForm({...reportForm, projectId: e.target.value})}
-                            className={`${inputClass} appearance-none`}
-                            required
+                        {/* Custom Project Selector Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setShowProjectSelector(true)}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-left flex justify-between items-center group transition-all active:scale-[0.98]"
                         >
-                            <option value="">প্রজেক্ট সিলেক্ট করুন</option>
-                            {projects.filter(p => p.status === 'active').map(p => (
-                                <option key={p.id} value={p.id}>{p.project_name}</option>
-                            ))}
-                        </select>
-                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 rotate-90 pointer-events-none" size={16}/>
-                    </div>
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>বিবরণ</label>
-                    <textarea 
-                      required
-                      value={reportForm.description}
-                      onChange={(e) => setReportForm({...reportForm, description: e.target.value})}
-                      placeholder={t('report_desc')}
-                      className={`${inputClass} h-24 resize-none leading-relaxed`}
-                    />
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>{t('upload_photo')}</label>
-                    <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full h-40 bg-slate-50 dark:bg-slate-800 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 transition-colors relative overflow-hidden group"
-                    >
-                        {reportForm.image_url ? (
-                            <img src={reportForm.image_url} alt="Work" className="w-full h-full object-cover transition-opacity" style={{ opacity: isProcessingImage ? 0.5 : 1 }} />
-                        ) : (
-                            <>
-                                <div className="bg-slate-100 dark:bg-slate-700 p-3 rounded-full mb-2 group-hover:scale-110 transition-transform">
-                                    <ImageIcon size={28} className="text-slate-400" />
-                                </div>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase">কাজের ছবি দিন</p>
-                            </>
-                        )}
-                        
-                        {isProcessingImage && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                              <Loader2 className="animate-spin text-purple-600" size={32} />
-                          </div>
-                        )}
-
-                        <input 
-                            type="file" 
-                            ref={fileInputRef}
-                            className="hidden"
-                            accept="image/png, image/jpeg, image/jpg, image/webp"
-                            capture="environment"
-                            onChange={(e) => handleImageUpload(e, 'report')}
-                        />
-                    </div>
-                 </div>
+                           <span className={`text-sm font-bold ${txForm.projectId ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
+                              {txForm.projectId ? projects.find(p => p.id === txForm.projectId)?.project_name : t('general_project')}
+                           </span>
+                           <ChevronDown size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                        </button>
+                     </div>
+                   </>
+                 )}
 
                  <button 
                    type="submit" 
-                   disabled={isSubmitting || isProcessingImage}
-                   className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:bg-slate-300 disabled:cursor-not-allowed"
+                   className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg mt-2 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base bg-gradient-to-r
+                     ${activeModal === 'income' ? 'from-emerald-600 to-teal-600 shadow-emerald-200 dark:shadow-none' : 
+                       activeModal === 'payment' ? 'from-blue-600 to-indigo-600 shadow-blue-200 dark:shadow-none' : 
+                       'from-rose-600 to-pink-600 shadow-rose-200 dark:shadow-none'}`}
                  >
-                    {isProcessingImage ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-                    {isSubmitting ? 'পাঠানো হচ্ছে...' : t('submit_report')}
+                    <CheckCircle size={20} />
+                    নিশ্চিত করুন
                  </button>
               </form>
            </div>
         </div>
       )}
+      
+      {/* --- CUSTOM SELECTOR MODALS --- */}
+      
+      {/* Worker Selector */}
+      <SelectorSheet 
+         isOpen={showWorkerSelector}
+         onClose={() => setShowWorkerSelector(false)}
+         title="কর্মী সিলেক্ট করুন"
+         icon={Users}
+         options={workers.map(w => ({ value: w.id, label: w.full_name, sub: w.skill_type }))}
+         selectedValue={payForm.workerId}
+         onSelect={(val) => setPayForm({...payForm, workerId: val})}
+      />
 
-      {activeModal === 'notice' && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
-           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
-           <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-8 shadow-2xl animate-scale-up border-t border-slate-100 dark:border-slate-800">
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    <div className="bg-red-100 p-2 rounded-full"><Megaphone className="text-red-600" size={20}/></div>
-                    নোটিশ পাঠান
-                 </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
-              </div>
+      {/* Project Selector */}
+      <SelectorSheet 
+         isOpen={showProjectSelector}
+         onClose={() => setShowProjectSelector(false)}
+         title="প্রজেক্ট সিলেক্ট করুন"
+         icon={Briefcase}
+         options={[
+             { value: '', label: t('general_project'), sub: 'General' },
+             ...projects.filter(p => p.status === 'active').map(p => ({ value: p.id, label: p.project_name, sub: p.location }))
+         ]}
+         selectedValue={txForm.projectId}
+         onSelect={(val) => setTxForm({...txForm, projectId: val})}
+      />
 
-              <form onSubmit={handleNoticeSubmit} className="space-y-4">
-                 
-                 {/* Notice Type Toggle */}
-                 <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
-                    <button
-                       type="button"
-                       onClick={() => setNoticeType('contractor')}
-                       className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all ${noticeType === 'contractor' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500'}`}
-                    >
-                       <User size={16} /> ঠিকাদারকে (Private)
-                    </button>
-                    <button
-                       type="button"
-                       onClick={() => setNoticeType('public')}
-                       className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold transition-all ${noticeType === 'public' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-500'}`}
-                    >
-                       <Megaphone size={16} /> সবার জন্য (Public)
-                    </button>
-                 </div>
-
-                 <div>
-                    <label className={labelClass}>নোটিশের বিবরণ</label>
-                    <textarea 
-                      required
-                      autoFocus
-                      value={noticeText}
-                      onChange={(e) => setNoticeText(e.target.value)}
-                      placeholder={noticeType === 'contractor' ? "ঠিকাদারকে জানানোর জন্য বার্তা লিখুন..." : "সকল কর্মীর জন্য পাবলিক নোটিশ লিখুন..."}
-                      className={`${inputClass} h-32 resize-none leading-relaxed border-red-200 focus:border-red-500 focus:ring-red-500/10`}
-                    />
-                 </div>
-
-                 <button 
-                   type="submit" 
-                   disabled={isSubmitting}
-                   className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white rounded-2xl font-bold shadow-lg shadow-red-200 dark:shadow-none mt-2 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70"
-                 >
-                    <Send size={18} />
-                    {isSubmitting ? 'পাঠানো হচ্ছে...' : 'নোটিশ পাঠান'}
-                 </button>
-              </form>
-           </div>
-        </div>
-      )}
-
+      {/* Animation Styles */}
       <style>{`
         @keyframes slideUp {
           from { transform: translateY(100%); opacity: 0; }
@@ -1190,7 +1003,6 @@ export const SupervisorDashboard = () => {
           animation: progress 4000ms linear infinite;
         }
       `}</style>
-
     </div>
   );
 };

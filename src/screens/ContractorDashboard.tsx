@@ -1,10 +1,14 @@
-import React, { useMemo, useState, useEffect } from 'react';
+
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../context/DataContext';
-import { useNavigate } from 'react-router-dom';
-import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin, UserPlus, Sparkles, AlertCircle, Search, Check, ChevronDown } from 'lucide-react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
-import { Transaction } from '../types';
 import { useAuth } from '../context/SessionContext';
+import { useToast } from '../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
+import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft, Search, Check, ChevronDown, Hammer, CreditCard, PieChart } from 'lucide-react';
+import { Transaction, WorkReport, MaterialLog } from '../types';
+import { supabase } from '../supabaseClient';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
 
 // --- CUSTOM SELECTOR COMPONENT ---
 interface SelectorProps {
@@ -98,6 +102,7 @@ export const ContractorDashboard = () => {
   const { user } = useAuth();
   const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, workReports, materialLogs, t, isLoadingData } = useData();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const today = new Date().toISOString().split('T')[0];
   const stats = getDailyStats(today);
@@ -299,14 +304,14 @@ export const ContractorDashboard = () => {
       // 4. Recent Attendance
       const recentAttendance = attendance
         .filter(a => a.date === today)
-        .sort((a,b) => safeDate(b.created_at).getTime() - safeDate(a.created_at).getTime())
+        .sort((a,b) => safeDate(b.created_at || new Date().toISOString()).getTime() - safeDate(a.created_at || new Date().toISOString()).getTime())
         .slice(0, 3); 
 
       recentAttendance.forEach(a => {
           const wName = users.find(u => u.id === a.worker_id)?.full_name || 'Worker';
           activities.push({
               id: `att-${a.id}`,
-              date: safeDate(a.created_at),
+              date: safeDate(a.created_at || new Date().toISOString()),
               title: 'হাজিরা আপডেট',
               desc: `${wName} আজ ${a.status === 'P' ? 'উপস্থিত' : 'হাফ-ডে'}।`,
               icon: CheckCircle,
@@ -348,7 +353,8 @@ export const ContractorDashboard = () => {
       amount: Number(txForm.amount),
       description: txForm.description || (activeModal === 'income' ? 'জমা (ক্যাশ)' : 'সাধারণ খরচ'),
       project_id: txForm.projectId || undefined,
-      date: today
+      date: today,
+      created_at: new Date().toISOString()
     };
     await addTransaction(newTx);
     setActiveModal(null);
