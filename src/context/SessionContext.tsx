@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Profile } from '../types';
 import { supabase } from '../supabaseClient';
@@ -86,11 +87,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
+      // Use maybeSingle() to handle case where profile doesn't exist yet without throwing error
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setUserState(data as Profile);
