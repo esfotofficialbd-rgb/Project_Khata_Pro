@@ -40,7 +40,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 2. Check Supabase Session (Verification)
         const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (error) throw error;
+        if (error) {
+            console.error("Auth Session Error:", error);
+            // Don't throw, just let it proceed to clear if needed
+        }
         
         if (!session) {
             if (mounted) {
@@ -48,7 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (localStorage.getItem('pk_user_profile')) {
                     handleLocalLogout();
                 }
-                setLoading(false);
             }
             return;
         }
@@ -56,15 +58,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 3. Fetch/Update Profile if session exists
         if (session.user) {
            await fetchProfile(session.user.id);
-        } else {
-           if(mounted) setLoading(false);
         }
       } catch (error: any) {
         // Ignore abort errors (common in React Strict Mode / Fast Refresh)
-        if (error.name === 'AbortError' || error.message?.includes('signal is aborted')) {
-            return;
+        if (error.name !== 'AbortError') {
+            console.error("Auth init error:", error);
         }
-        console.error("Auth init error:", error);
+      } finally {
         if (mounted) setLoading(false);
       }
     };
@@ -76,6 +76,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
          await fetchProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
          if (mounted) handleLocalLogout();
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+         // Optional: Refresh profile on token refresh
+         // await fetchProfile(session.user.id);
       }
     });
 
@@ -103,7 +106,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Fetch profile catch', error);
     } finally {
-      setLoading(false);
+      // Typically we don't setLoading(false) here because checkSession handles it, 
+      // but safe to do so if called independently
     }
   };
 
