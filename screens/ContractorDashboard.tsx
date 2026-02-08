@@ -1,16 +1,108 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../context/DataContext';
-import { useNavigate } from 'react-router-dom';
-import { Briefcase, Users, Hammer, PlusCircle, DollarSign, FileText, CreditCard, Wallet, X, CheckCircle, ArrowDownLeft, ArrowUpRight, TrendingUp, Sun, Loader2, ArrowRight, MoreHorizontal, PieChart, ChevronRight, Activity, Building2, Zap, Clock, Package, MapPin, UserPlus, Sparkles, AlertCircle } from 'lucide-react';
-import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
-import { Transaction } from '../types';
 import { useAuth } from '../context/SessionContext';
+import { useToast } from '../context/ToastContext';
+import { useNavigate } from 'react-router-dom';
+import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft, Search, Check, ChevronDown, Hammer, CreditCard, PieChart } from 'lucide-react';
+import { Transaction, WorkReport, MaterialLog } from '../types';
+import { supabase } from '../supabaseClient';
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, CartesianGrid, YAxis } from 'recharts';
+
+// --- CUSTOM SELECTOR COMPONENT ---
+interface SelectorProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  options: { value: string; label: string; sub?: string }[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  icon?: React.ElementType;
+}
+
+const SelectorSheet = ({ isOpen, onClose, title, options, selectedValue, onSelect, icon: Icon }: SelectorProps) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  if (!isOpen) return null;
+
+  const filteredOptions = options.filter(opt => 
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (opt.sub && opt.sub.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center sm:p-4">
+        <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+        <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] relative z-10 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800 max-h-[85vh] flex flex-col">
+            
+            {/* Header */}
+            <div className="p-6 pb-2 shrink-0">
+                <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        {Icon && <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-full text-blue-600"><Icon size={20}/></div>}
+                        {title}
+                    </h3>
+                    <button onClick={onClose} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
+                </div>
+
+                {/* Search */}
+                <div className="relative mb-2">
+                    <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+                    <input 
+                        type="text" 
+                        placeholder="খুঁজুন..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:border-blue-500 text-sm font-bold text-slate-900 dark:text-white"
+                        autoFocus
+                    />
+                </div>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto px-4 pb-6 custom-scrollbar space-y-2">
+                {filteredOptions.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-sm font-medium">কোন তথ্য পাওয়া যায়নি</div>
+                ) : (
+                    filteredOptions.map((opt) => (
+                        <button
+                            key={opt.value}
+                            onClick={() => { onSelect(opt.value); onClose(); setSearchTerm(''); }}
+                            className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all active:scale-[0.98] ${
+                                selectedValue === opt.value 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500 ring-1 ring-blue-500/20' 
+                                : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            <div className="text-left">
+                                <p className={`font-bold text-sm ${selectedValue === opt.value ? 'text-blue-700 dark:text-blue-300' : 'text-slate-800 dark:text-white'}`}>
+                                    {opt.label}
+                                </p>
+                                {opt.sub && (
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">{opt.sub}</p>
+                                )}
+                            </div>
+                            {selectedValue === opt.value && (
+                                <div className="bg-blue-500 text-white p-1 rounded-full">
+                                    <Check size={14} strokeWidth={3} />
+                                </div>
+                            )}
+                        </button>
+                    ))
+                )}
+            </div>
+        </div>
+    </div>
+  );
+};
 
 export const ContractorDashboard = () => {
   const { user } = useAuth();
   const { projects, users, getDailyStats, transactions, attendance, addTransaction, payWorker, getWorkerBalance, workReports, materialLogs, t, isLoadingData } = useData();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const today = new Date().toISOString().split('T')[0];
   const stats = getDailyStats(today);
@@ -212,14 +304,14 @@ export const ContractorDashboard = () => {
       // 4. Recent Attendance
       const recentAttendance = attendance
         .filter(a => a.date === today)
-        .sort((a,b) => safeDate(b.created_at).getTime() - safeDate(a.created_at).getTime())
+        .sort((a,b) => safeDate(b.created_at || '').getTime() - safeDate(a.created_at || '').getTime())
         .slice(0, 3); 
 
       recentAttendance.forEach(a => {
           const wName = users.find(u => u.id === a.worker_id)?.full_name || 'Worker';
           activities.push({
               id: `att-${a.id}`,
-              date: safeDate(a.created_at),
+              date: safeDate(a.created_at || new Date().toISOString()),
               title: 'হাজিরা আপডেট',
               desc: `${wName} আজ ${a.status === 'P' ? 'উপস্থিত' : 'হাফ-ডে'}।`,
               icon: CheckCircle,
@@ -247,6 +339,10 @@ export const ContractorDashboard = () => {
   const [activeModal, setActiveModal] = useState<'income' | 'expense' | 'payment' | null>(null);
   const [txForm, setTxForm] = useState({ amount: '', description: '', projectId: '' });
   const [payForm, setPayForm] = useState({ workerId: '', amount: '' });
+  
+  // Custom Selector States
+  const [showWorkerSelector, setShowWorkerSelector] = useState(false);
+  const [showProjectSelector, setShowProjectSelector] = useState(false);
 
   const handleTxSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,7 +353,8 @@ export const ContractorDashboard = () => {
       amount: Number(txForm.amount),
       description: txForm.description || (activeModal === 'income' ? 'জমা (ক্যাশ)' : 'সাধারণ খরচ'),
       project_id: txForm.projectId || undefined,
-      date: today
+      date: today,
+      created_at: new Date().toISOString()
     };
     await addTransaction(newTx);
     setActiveModal(null);
@@ -599,7 +696,7 @@ export const ContractorDashboard = () => {
       {/* Bottom Sheet Modals */}
       {(activeModal === 'income' || activeModal === 'expense' || activeModal === 'payment') && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
-           <div className="absolute inset-0 bg-slate-800/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
+           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
            
            <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm sm:rounded-[2.5rem] rounded-t-[2.5rem] relative z-10 p-6 shadow-2xl animate-slide-up border-t border-slate-100 dark:border-slate-800">
               {/* Drag Handle for Mobile */}
@@ -612,26 +709,28 @@ export const ContractorDashboard = () => {
                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600"><Wallet size={20}/></div>}
                     <span className="text-lg">{activeModal === 'income' ? t('income_title') : activeModal === 'expense' ? t('expense_title') : t('payment_title')}</span>
                  </h3>
-                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
+                 <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
               </div>
 
               <form onSubmit={activeModal === 'payment' ? handlePaySubmit : handleTxSubmit} className="space-y-5">
                  {activeModal === 'payment' && (
                     <div className="space-y-2">
                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('select_worker')}</label>
-                       <select 
-                          value={payForm.workerId}
-                          onChange={(e) => setPayForm({...payForm, workerId: e.target.value})}
-                          className={`${inputClass} appearance-none`}
-                          required
+                       
+                       {/* Custom Worker Selector Trigger */}
+                       <button
+                          type="button"
+                          onClick={() => setShowWorkerSelector(true)}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-left flex justify-between items-center group transition-all active:scale-[0.98]"
                        >
-                          <option value="">{t('click_list')}</option>
-                          {workers.map(w => (
-                             <option key={w.id} value={w.id}>{w.full_name}</option>
-                          ))}
-                       </select>
+                          <span className={`text-sm font-bold ${payForm.workerId ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
+                             {payForm.workerId ? workers.find(w => w.id === payForm.workerId)?.full_name : t('click_list')}
+                          </span>
+                          <ChevronDown size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                       </button>
+
                        {payForm.workerId && (
-                          <div className="flex justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-medium border border-slate-100 dark:border-slate-700">
+                          <div className="flex justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs font-medium border border-slate-100 dark:border-slate-700 animate-fade-in-up">
                              <span className="text-slate-500 dark:text-slate-400">বর্তমান বকেয়া</span>
                              <span className={`font-bold ${selectedWorkerBalance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>৳ {selectedWorkerBalance}</span>
                           </div>
@@ -671,19 +770,18 @@ export const ContractorDashboard = () => {
                      </div>
                      <div className="space-y-2">
                         <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide ml-1">{t('project_optional')}</label>
-                        <div className="relative">
-                           <select 
-                              value={txForm.projectId}
-                              onChange={(e) => setTxForm({...txForm, projectId: e.target.value})}
-                              className={`${inputClass} appearance-none`}
-                           >
-                              <option value="">{t('general_project')}</option>
-                              {projects.filter(p => p.status === 'active').map(p => (
-                                 <option key={p.id} value={p.id}>{p.project_name}</option>
-                              ))}
-                           </select>
-                           <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" size={16} />
-                        </div>
+                        
+                        {/* Custom Project Selector Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setShowProjectSelector(true)}
+                          className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none text-left flex justify-between items-center group transition-all active:scale-[0.98]"
+                        >
+                           <span className={`text-sm font-bold ${txForm.projectId ? 'text-slate-800 dark:text-white' : 'text-slate-400'}`}>
+                              {txForm.projectId ? projects.find(p => p.id === txForm.projectId)?.project_name : t('general_project')}
+                           </span>
+                           <ChevronDown size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                        </button>
                      </div>
                    </>
                  )}
@@ -703,6 +801,33 @@ export const ContractorDashboard = () => {
         </div>
       )}
       
+      {/* --- CUSTOM SELECTOR MODALS --- */}
+      
+      {/* Worker Selector */}
+      <SelectorSheet 
+         isOpen={showWorkerSelector}
+         onClose={() => setShowWorkerSelector(false)}
+         title="কর্মী সিলেক্ট করুন"
+         icon={Users}
+         options={workers.map(w => ({ value: w.id, label: w.full_name, sub: w.skill_type }))}
+         selectedValue={payForm.workerId}
+         onSelect={(val) => setPayForm({...payForm, workerId: val})}
+      />
+
+      {/* Project Selector */}
+      <SelectorSheet 
+         isOpen={showProjectSelector}
+         onClose={() => setShowProjectSelector(false)}
+         title="প্রজেক্ট সিলেক্ট করুন"
+         icon={Briefcase}
+         options={[
+             { value: '', label: t('general_project'), sub: 'General' },
+             ...projects.filter(p => p.status === 'active').map(p => ({ value: p.id, label: p.project_name, sub: p.location }))
+         ]}
+         selectedValue={txForm.projectId}
+         onSelect={(val) => setTxForm({...txForm, projectId: val})}
+      />
+
       {/* Animation Styles */}
       <style>{`
         @keyframes slideUp {

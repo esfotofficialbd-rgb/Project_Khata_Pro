@@ -60,67 +60,99 @@ export const WorkerProfile = () => {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setIsProcessingImage(true);
-      
-      const reader = new FileReader();
-      reader.onload = (event) => {
-          const img = new Image();
-          img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const MAX_WIDTH = 500;
-              let width = img.width;
-              let height = img.height;
+    if (!file) return;
 
-              if (width > MAX_WIDTH) {
-                height *= MAX_WIDTH / width;
-                width = MAX_WIDTH;
-              }
-
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx?.drawImage(img, 0, 0, width, height);
-              
-              canvas.toBlob(async (blob) => {
-                  if (blob) {
-                      const fileName = `avatars/${user.id}-${Date.now()}.jpg`;
-                      
-                      try {
-                          const { error } = await supabase.storage
-                              .from('images')
-                              .upload(fileName, blob, {
-                                  contentType: 'image/jpeg',
-                                  upsert: true
-                              });
-
-                          if (error) throw error;
-
-                          const { data: publicData } = supabase.storage
-                              .from('images')
-                              .getPublicUrl(fileName);
-
-                          setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
-                          toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
-                          setIsProcessingImage(false);
-                      } catch (uploadError) {
-                          console.warn("Storage upload failed, fallback to Base64:", uploadError);
-                          
-                          // Fallback to Base64
-                          const base64String = canvas.toDataURL('image/jpeg', 0.7);
-                          setFormData(prev => ({ ...prev, avatar_url: base64String }));
-                          toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
-                          setIsProcessingImage(false);
-                      }
-                  } else {
-                      setIsProcessingImage(false);
-                  }
-              }, 'image/jpeg', 0.7);
-          };
-          img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+        toast.error('ভুল ফাইল ফরম্যাট', 'শুধুমাত্র ছবি আপলোড করা যাবে।');
+        return;
     }
+
+    setIsProcessingImage(true);
+    
+    // Create File Reader
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            try {
+                // Resize Logic (Aggressive resize for mobile)
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 600; // Safe limit for mobile RAM
+                let width = img.width;
+                let height = img.height;
+
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+                
+                // Get Base64 first as backup
+                const base64String = canvas.toDataURL('image/jpeg', 0.6);
+
+                canvas.toBlob(async (blob) => {
+                    if (blob) {
+                        const fileName = `avatars/${user.id}-${Date.now()}.jpg`;
+                        
+                        // Race Condition: Upload vs Timeout (5 seconds)
+                        const uploadPromise = supabase.storage
+                            .from('images')
+                            .upload(fileName, blob, {
+                                contentType: 'image/jpeg',
+                                upsert: true
+                            });
+
+                        const timeoutPromise = new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Upload Timeout')), 8000)
+                        );
+
+                        try {
+                            const result: any = await Promise.race([uploadPromise, timeoutPromise]);
+                            
+                            if (result.error) throw result.error;
+
+                            const { data: publicData } = supabase.storage
+                                .from('images')
+                                .getPublicUrl(fileName);
+
+                            setFormData(prev => ({ ...prev, avatar_url: publicData.publicUrl }));
+                            toast.success('ছবি আপলোড সম্পন্ন হয়েছে');
+                        } catch (uploadError) {
+                            console.warn("Upload failed/timed out, using Base64 fallback");
+                            // Fallback to Base64
+                            setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                            toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
+                        } finally {
+                            setIsProcessingImage(false);
+                        }
+                    } else {
+                        // Blob creation failed, use base64
+                        setFormData(prev => ({ ...prev, avatar_url: base64String }));
+                        setIsProcessingImage(false);
+                    }
+                }, 'image/jpeg', 0.6); // Low quality for speed
+
+            } catch (err) {
+                console.error("Image processing error", err);
+                toast.error("ছবি প্রসেস করা যাচ্ছে না");
+                setIsProcessingImage(false);
+            }
+        };
+        img.onerror = () => {
+            toast.error("ছবির ফাইলটি নষ্ট হতে পারে");
+            setIsProcessingImage(false);
+        };
+        img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    
+    // Clear input
     if (e.target) e.target.value = '';
   };
 
@@ -343,8 +375,11 @@ export const WorkerProfile = () => {
            <div className="bg-white dark:bg-slate-900 w-full sm:max-w-sm rounded-t-[2.5rem] sm:rounded-[2.5rem] relative z-10 p-8 shadow-2xl animate-scale-up border border-slate-100 dark:border-slate-800">
              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden"></div>
              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">প্রোফাইল এডিট</h3>
-                <button onClick={() => setIsEditing(false)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200"><X size={20}/></button>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                   <div className={`${theme.lightBg} p-2 rounded-xl ${theme.text}`}><Edit2 size={20}/></div>
+                   এডিট প্রোফাইল
+                </h3>
+                <button onClick={() => setIsEditing(false)} className="bg-slate-100 dark:bg-slate-800 p-2.5 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
              </div>
 
              <form onSubmit={saveProfile} className="space-y-6">
@@ -356,13 +391,13 @@ export const WorkerProfile = () => {
                         alt="Profile" 
                         style={{ opacity: isProcessingImage ? 0.5 : 1 }}
                       />
-                      <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
+                      <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm cursor-pointer">
                          <Camera size={32} className="text-white" />
                       </div>
                       
                       {isProcessingImage && (
                           <div className="absolute inset-0 flex items-center justify-center">
-                              <Loader2 className="animate-spin text-blue-600" size={32} />
+                              <Loader2 className="animate-spin text-white" size={32} />
                           </div>
                       )}
 
@@ -374,7 +409,7 @@ export const WorkerProfile = () => {
                         onChange={handleImageUpload}
                       />
                    </div>
-                   <p className="text-xs font-bold text-blue-600 mt-3 uppercase tracking-wide bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full">ছবি পরিবর্তন</p>
+                   <p className={`text-[10px] ${theme.text} font-bold mt-3 uppercase tracking-wide ${theme.lightBg} px-3 py-1 rounded-full`}>ছবি পরিবর্তন</p>
                 </div>
 
                 <div>

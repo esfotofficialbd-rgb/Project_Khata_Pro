@@ -1,10 +1,11 @@
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/SessionContext';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft } from 'lucide-react';
+import { ClipboardList, Users, Wallet, DollarSign, ArrowUpRight, CheckCircle, X, MapPin, PlusCircle, Briefcase, Camera, FileText, Truck, PackageCheck, UserCheck, PlayCircle, History, QrCode, Calendar, Sun, Clock, Send, Image as ImageIcon, Activity, Megaphone, TrendingUp, Construction, ChevronRight, AlertCircle, ArrowRight, User, Radio, Loader2, Sparkles, ArrowDownLeft, Hammer } from 'lucide-react';
 import { Transaction, WorkReport, MaterialLog } from '../types';
 import { supabase } from '../supabaseClient';
 
@@ -112,6 +113,11 @@ export const SupervisorDashboard = () => {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'report' | 'material') => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type.startsWith('image/')) {
+          toast.error('ভুল ফাইল', 'শুধুমাত্র ছবি আপলোড করা যাবে।');
+          return;
+      }
+
       setIsProcessingImage(true);
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
@@ -161,20 +167,19 @@ export const SupervisorDashboard = () => {
                       } catch (uploadError) {
                           console.warn("Storage failed, using Base64 fallback", uploadError);
                           
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                              const base64String = reader.result as string;
-                              if (type === 'report') {
-                                 setReportForm(prev => ({ ...prev, image_url: base64String }));
-                              } else {
-                                 setMaterialForm(prev => ({ ...prev, challan_photo: base64String }));
-                              }
-                              toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
-                          };
-                          reader.readAsDataURL(blob);
+                          // Fallback to Base64
+                          const base64String = canvas.toDataURL('image/jpeg', 0.7);
+                          if (type === 'report') {
+                             setReportForm(prev => ({ ...prev, image_url: base64String }));
+                          } else {
+                             setMaterialForm(prev => ({ ...prev, challan_photo: base64String }));
+                          }
+                          toast.success('ছবি সেভ হয়েছে (অফলাইন মোড)');
                       } finally {
                           setIsProcessingImage(false);
                       }
+                  } else {
+                      setIsProcessingImage(false);
                   }
               }, 'image/jpeg', 0.7);
 
@@ -372,7 +377,8 @@ export const SupervisorDashboard = () => {
       amount: Number(txForm.amount),
       description: txForm.description || 'Site Expense',
       project_id: txForm.projectId || undefined,
-      date: today
+      date: today,
+      created_at: new Date().toISOString()
     };
     await addTransaction(newTx);
     setActiveModal(null);
@@ -403,7 +409,8 @@ export const SupervisorDashboard = () => {
             submitted_by: user!.id,
             date: today,
             description: reportForm.description,
-            image_url: reportForm.image_url || undefined
+            image_url: reportForm.image_url || undefined,
+            created_at: new Date().toISOString()
         };
         
         await addWorkReport(newReport);
@@ -429,7 +436,8 @@ export const SupervisorDashboard = () => {
           quantity: Number(materialForm.quantity),
           unit: materialForm.unit,
           supplier_name: materialForm.supplier,
-          challan_photo: materialForm.challan_photo
+          challan_photo: materialForm.challan_photo,
+          created_at: new Date().toISOString()
        };
        await addMaterialLog(newLog);
        setActiveModal(null);
