@@ -852,7 +852,7 @@ export const SupervisorDashboard = () => {
       </div>
 
       {/* Bottom Sheet Modals */}
-      {(activeModal === 'income' || activeModal === 'expense' || activeModal === 'payment') && (
+      {(activeModal === 'expense' || activeModal === 'payment') && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
            <div className="absolute inset-0 bg-slate-800/60 backdrop-blur-sm transition-opacity" onClick={() => setActiveModal(null)}></div>
            
@@ -862,10 +862,9 @@ export const SupervisorDashboard = () => {
 
               <div className="flex justify-between items-center mb-6">
                  <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                    {activeModal === 'income' ? <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl text-emerald-600"><ArrowDownLeft size={20}/></div> : 
-                     activeModal === 'expense' ? <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-xl text-rose-600"><ArrowUpRight size={20}/></div> : 
+                    {activeModal === 'expense' ? <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-xl text-rose-600"><ArrowUpRight size={20}/></div> : 
                      <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl text-blue-600"><Wallet size={20}/></div>}
-                    <span className="text-lg">{activeModal === 'income' ? t('income_title') : activeModal === 'expense' ? t('expense_title') : t('payment_title')}</span>
+                    <span className="text-lg">{activeModal === 'expense' ? t('expense_title') : t('payment_title')}</span>
                  </h3>
                  <button onClick={() => setActiveModal(null)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><X size={20}/></button>
               </div>
@@ -922,7 +921,7 @@ export const SupervisorDashboard = () => {
                           required
                           value={txForm.description}
                           onChange={(e) => setTxForm({...txForm, description: e.target.value})}
-                          placeholder={activeModal === 'income' ? t('source_placeholder') : t('expense_placeholder')}
+                          placeholder={t('expense_placeholder')}
                           className={inputClass}
                         />
                      </div>
@@ -947,8 +946,7 @@ export const SupervisorDashboard = () => {
                  <button 
                    type="submit" 
                    className={`w-full py-4 rounded-2xl font-bold text-white shadow-lg mt-2 active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-base bg-gradient-to-r
-                     ${activeModal === 'income' ? 'from-emerald-600 to-teal-600 shadow-emerald-200 dark:shadow-none' : 
-                       activeModal === 'payment' ? 'from-blue-600 to-indigo-600 shadow-blue-200 dark:shadow-none' : 
+                     ${activeModal === 'payment' ? 'from-blue-600 to-indigo-600 shadow-blue-200 dark:shadow-none' : 
                        'from-rose-600 to-pink-600 shadow-rose-200 dark:shadow-none'}`}
                  >
                     <CheckCircle size={20} />

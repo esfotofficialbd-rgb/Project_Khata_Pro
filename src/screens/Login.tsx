@@ -51,21 +51,31 @@ export const Login = () => {
     e.preventDefault();
     if (loading) return; // Prevent double submit
 
+    // 1. Check Network
+    if (!navigator.onLine) {
+        toast.error('ইন্টারনেট সংযোগ নেই', 'দয়া করে আপনার ইন্টারনেট কানেকশন চেক করুন।');
+        setError('ইন্টারনেট সংযোগ নেই।');
+        return;
+    }
+
     setError('');
     setLoading(true);
 
-    const timeoutDuration = 15000; // 15 seconds
+    const timeoutDuration = 30000; // Increased to 30 seconds for slower networks
     const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("সার্ভার থেকে সাড়া পাওয়া যাচ্ছে না। দয়া করে ইন্টারনেট সংযোগ চেক করুন।")), timeoutDuration)
+        setTimeout(() => reject(new Error("সার্ভার থেকে সাড়া পেতে দেরি হচ্ছে। ইন্টারনেট স্পিড কম হতে পারে।")), timeoutDuration)
     );
 
     try {
       let email = normalizeBanglaDigits(identifier.trim());
-      const pass = normalizeBanglaDigits(password.trim());
+      let pass = normalizeBanglaDigits(password.trim());
       let cleanPhoneInput = '';
       
       // Formatting Logic for Worker/Supervisor (Phone based login)
       if (role !== 'contractor') {
+         // Auto-remove spaces from password for workers (common mistake)
+         pass = pass.replace(/\s/g, '');
+
          if (!email.includes('@')) {
             // Normalize phone: remove non-digits
             let cleanPhone = email.replace(/\D/g, '');
@@ -108,18 +118,19 @@ export const Login = () => {
       const { data, error: authError } = response;
 
       if (authError) {
+          console.error("Supabase Auth Error:", authError);
           if (authError.message === 'Invalid login credentials') {
               if (role !== 'contractor') {
-                  throw new Error("লগইন ব্যর্থ। আপনি কি পাসওয়ার্ড হিসেবে মোবাইল নাম্বারের শেষ ৬ ডিজিট দিয়েছেন?");
+                  throw new Error("লগইন ব্যর্থ। মোবাইল বা পাসওয়ার্ড ভুল হয়েছে। (ডিফল্ট পাসওয়ার্ড: মোবাইল নাম্বারের শেষ ৬ ডিজিট)");
               }
               throw new Error("ইমেইল বা পাসওয়ার্ড ভুল হয়েছে।");
           }
-          throw authError;
+          throw new Error(authError.message || "লগইন করা যাচ্ছে না। দয়া করে আবার চেষ্টা করুন।");
       }
 
       if (data?.user) {
          // Fetch Profile
-         // Using maybeSingle() to handle missing profile gracefully instead of throwing generic error
+         // Using maybeSingle() to handle missing profile gracefully
          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
@@ -128,7 +139,12 @@ export const Login = () => {
 
          if (profileError) {
              console.error("Profile Fetch Error:", profileError);
-             throw new Error("প্রোফাইল লোড করা যায়নি: " + profileError.message);
+             let msg = profileError.message;
+             // Detect specific schema errors
+             if (msg.includes('relation') && msg.includes('does not exist')) {
+                 msg = "ডাটাবেস সেটআপ সম্পন্ন হয়নি (Tables missing)। অনুগ্রহ করে SQL Editor এ স্কিমা রান করুন।";
+             }
+             throw new Error("প্রোফাইল লোড এরর: " + msg);
          }
 
          if (profile) {
@@ -153,14 +169,14 @@ export const Login = () => {
              }
          } else {
              await supabase.auth.signOut();
-             throw new Error('প্রোফাইল পাওয়া যায়নি। অনুগ্রহ করে সাপোর্টে যোগাযোগ করুন।');
+             throw new Error('প্রোফাইল পাওয়া যায়নি। আপনার অ্যাকাউন্টটি সম্ভবত ঠিকভাবে তৈরি হয়নি বা মুছে ফেলা হয়েছে।');
          }
       } else {
           throw new Error('লগইন সেশন পাওয়া যায়নি।');
       }
 
     } catch (err: any) {
-      console.error("Login Error:", err);
+      console.error("Login Error Catch:", err);
       if (isMounted.current) {
           setError(err.message || 'লগইন ব্যর্থ হয়েছে।');
           toast.error('ত্রুটি', err.message);
