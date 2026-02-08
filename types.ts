@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'contractor' | 'worker' | 'supervisor';
 
 export interface Profile {
@@ -48,6 +49,7 @@ export interface Attendance {
   status: 'P' | 'H' | 'A'; // Present, Half-day, Absent
   overtime?: number; // Hours
   amount: number;
+  created_at?: string; // Added for sorting/history
 }
 
 export interface Transaction {
@@ -58,6 +60,7 @@ export interface Transaction {
   amount: number;
   description: string;
   date: string;
+  created_at?: string; // Added for feed sorting
 }
 
 export interface WorkReport {
@@ -67,6 +70,7 @@ export interface WorkReport {
   date: string;
   description: string;
   image_url?: string; // Base64 or URL
+  created_at?: string; // Added for feed sorting
 }
 
 export interface MaterialLog {
@@ -79,6 +83,7 @@ export interface MaterialLog {
   unit: string; // e.g., Bag, Truck, CFT
   supplier_name?: string;
   challan_photo?: string;
+  created_at?: string; // Added for feed sorting
 }
 
 export interface DailyStats {
